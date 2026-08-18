@@ -1,0 +1,2 @@
+This file is here to check that a file which is not an XML file is refused
+because of its extension, before anything tries to parse it.

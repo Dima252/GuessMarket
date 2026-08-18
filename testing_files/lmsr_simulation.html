@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LMSR Market Maker Simulation — Will it rain tomorrow?</title>
+<style>
+  :root{
+    --bg:#12151b; --surface:#1a1e26; --surface2:#20242e; --surface3:#262b36;
+    --border:#2b303c; --border-soft:#232833;
+    --text:#e7e9ee; --text-dim:#8b93a3; --text-faint:#5c6373;
+    --yes:#3ecf8e; --yes-bg:rgba(62,207,142,0.13); --yes-line:rgba(62,207,142,0.35);
+    --no:#f0665c; --no-bg:rgba(240,102,92,0.13); --no-line:rgba(240,102,92,0.35);
+    --fee:#f2d94e; --fee-bg:rgba(242,217,78,0.13);
+    --pool:#8c9bff; --pool-bg:rgba(140,155,255,0.12);
+    --warn:#f0665c; --warn-bg:rgba(240,102,92,0.13);
+    --mono:ui-monospace,'SF Mono','Cascadia Code',Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;padding:32px 16px 64px}
+  .wrap{max-width:760px;margin:0 auto}
+
+  .eyebrow{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-faint);
+    font-weight:600;margin-bottom:8px}
+  h1{font-size:26px;font-weight:650;margin:0 0 6px;letter-spacing:-0.01em}
+  .sub{font-size:14px;color:var(--text-dim);line-height:1.5;margin:0 0 4px;max-width:60ch}
+  .hint{font-size:12px;color:var(--text-faint);margin:10px 0 22px;line-height:1.5}
+  .hint b{color:var(--text-dim)}
+
+  .card{background:var(--surface);border:1px solid var(--border-soft);border-radius:12px}
+
+  /* control bars */
+  .barrow{display:flex;flex-direction:column;gap:6px;padding:12px 14px;margin-bottom:10px}
+  .barhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .barlabel{font-size:12.5px;color:var(--text-dim);font-weight:600}
+  .barlabel .accent{color:var(--pool);font-family:var(--mono)}
+  .barlabel .accent.fee{color:var(--fee)}
+  .bval{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text)}
+  input[type=range]{width:100%;accent-color:var(--pool);height:4px}
+  .barhelp{font-size:11.5px;color:var(--text-faint);line-height:1.4}
+  .segctrl{display:flex;background:var(--surface2);border-radius:8px;padding:3px;gap:3px}
+  .seg{font-family:var(--sans);font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:6px;
+    border:none;background:transparent;color:var(--text-faint);cursor:pointer}
+  .seg.active{background:var(--fee);color:#241f04}
+  .seg:hover:not(.active){color:var(--text-dim)}
+
+  /* price cards */
+  .prices{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .pricecard{padding:16px 18px}
+  .pricecard .plabel{font-size:12.5px;color:var(--text-dim);margin-bottom:4px}
+  .pricecard .pval{font-size:26px;font-weight:700;margin-bottom:3px;font-family:var(--mono)}
+  .pricecard.yes .pval{color:var(--yes)} .pricecard.no .pval{color:var(--no)}
+  .pricecard .pchance{font-size:11.5px;color:var(--text-faint);margin-bottom:10px}
+  .pbar{height:7px;border-radius:99px;background:var(--surface3);overflow:hidden}
+  .pbar-fill{height:100%}
+  .pricecard.yes .pbar-fill{background:var(--yes)} .pricecard.no .pbar-fill{background:var(--no)}
+
+  /* formula panel */
+  .formula{padding:14px 18px;margin-bottom:10px;font-family:var(--mono);font-size:13px;line-height:1.9}
+  .formula .flabel{font-family:var(--sans);font-size:12.5px;color:var(--text-dim);margin-bottom:8px}
+  .formula .fdim{color:var(--text-faint)}
+  .formula .fres{color:var(--text);font-weight:700}
+
+  /* ticker-style stat cards */
+  .ticker{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px}
+  .tcard{padding:12px 14px}
+  .tcard.you{border-color:rgba(140,155,255,0.3)}
+  .thead{font-size:12.5px;font-weight:650;margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline}
+  .tdelta{font-family:var(--mono);font-size:11px;font-weight:600}
+  .tdelta.up{color:var(--yes)} .tdelta.down{color:var(--no)} .tdelta.flat{color:var(--text-faint)}
+  .stat{display:flex;justify-content:space-between;font-size:12px;padding:2px 0}
+  .stat .label{color:var(--text-faint)}
+  .stat .val{font-family:var(--mono);font-weight:600}
+  .stat .val.yes{color:var(--yes)} .stat .val.no{color:var(--no)} .stat .val.fee{color:var(--fee)}
+  .footnote{font-size:11px;color:var(--text-faint);margin:2px 0 22px;line-height:1.4}
+
+  /* trade panel */
+  .tradecard{padding:16px 18px;margin-bottom:10px}
+  .traderow{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin-bottom:12px}
+  .traderow:last-child{margin-bottom:0}
+  .tradeside{font-size:13.5px;font-weight:700;width:44px}
+  .tradeside.yes{color:var(--yes)} .tradeside.no{color:var(--no)}
+  .tradebtns{display:flex;gap:6px;flex-wrap:wrap}
+  .tbtn{font-family:var(--sans);font-size:12px;font-weight:600;padding:7px 11px;border-radius:7px;
+    border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;white-space:nowrap}
+  .tbtn:hover:not(:disabled){background:var(--surface3)}
+  .tbtn:disabled{opacity:0.3;cursor:default}
+  .tbtn.buy{border-color:rgba(62,207,142,0.35)}
+  .tbtn.sell{border-color:rgba(240,102,92,0.3);border-style:dashed;color:var(--text-dim)}
+  .status{font-size:12px;color:var(--fee);min-height:16px;margin-top:6px}
+
+  .lastcard{padding:12px 14px;margin-bottom:10px;font-size:12.5px}
+  .lastcard .llabel{color:var(--text-faint);margin-bottom:6px}
+  .lastrow{display:flex;justify-content:space-between;padding:2px 0}
+  .lastrow .lv{font-family:var(--mono);font-weight:600}
+  .lastempty{color:var(--text-faint)}
+
+  /* resolve */
+  .resolvecard{padding:16px 18px;margin-bottom:10px}
+  .resolvecard .rlabel{font-size:13px;font-weight:650;margin-bottom:4px}
+  .resolvecard .rsub{font-size:12px;color:var(--text-faint);margin-bottom:12px;line-height:1.5}
+  .rbtns{display:flex;gap:10px}
+  .rbtn{flex:1;font-family:var(--sans);font-size:13.5px;font-weight:650;padding:11px;border-radius:9px;
+    border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer}
+  .rbtn.yes{border-color:var(--yes-line);color:var(--yes)}
+  .rbtn.no{border-color:var(--no-line);color:var(--no)}
+  .rbtn:hover{background:var(--surface3)}
+
+  .closed{padding:20px 22px;text-align:center;border-color:var(--yes-line);
+    background:linear-gradient(180deg,var(--yes-bg),transparent);margin-bottom:10px}
+  .closed.no-outcome{border-color:var(--no-line);background:linear-gradient(180deg,var(--no-bg),transparent)}
+  .closed-title{font-size:16.5px;font-weight:700;margin-bottom:10px}
+  .settletable{text-align:left;max-width:420px;margin:0 auto;font-size:12.5px}
+  .settlerow{display:flex;justify-content:space-between;padding:3px 0;border-top:0.5px solid var(--border-soft)}
+  .settlerow.total{font-weight:700;color:var(--text)}
+  .settlerow .sv{font-family:var(--mono);font-weight:600}
+  .conserve{font-size:11px;color:var(--text-faint);margin-top:10px}
+
+  .controls{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+  .btn{font-family:var(--sans);font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;
+    border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer}
+  .btn:hover{background:var(--surface3)}
+  .btn.primary{background:var(--pool);border-color:var(--pool);color:#12151b}
+  .btn.primary:hover{background:#a2aeff}
+
+  @media (max-width:560px){
+    .prices{grid-template-columns:1fr} .ticker{grid-template-columns:1fr}
+    .traderow{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">LMSR Market Maker Simulation</div>
+  <h1>Will it rain tomorrow?</h1>
+  <p class="sub">A single automated market maker prices YES and NO shares by softmax. Trade against it directly — no counterparty needed — and watch price, cost, and commission move together.</p>
+  <p class="hint">Every trade goes straight to the AMM, so there's no order book here — just you and the formula. <b>Changing liquidity starts a fresh market.</b></p>
+
+  <div class="card barrow">
+    <div class="barhead">
+      <span class="barlabel">Liquidity <span class="accent" id="bval"></span></span>
+      <span class="bval">AMM seed = b·ln 2 = <span id="seedval"></span></span>
+    </div>
+    <input type="range" id="bslider" min="20" max="400" step="10" value="100">
+    <div class="barhelp">Small b → prices jump fast on a small trade (thin market). Large b → prices barely move (deep market), but the operator seeds more money up front.</div>
+  </div>
+
+  <div class="card barrow">
+    <div class="barhead">
+      <span class="barlabel">Commission <span class="accent fee">1% (fixed)</span>, charged to:</span>
+      <div class="segctrl">
+        <button class="seg" data-mode="purchase">On purchase</button>
+        <button class="seg" data-mode="close">On close</button>
+      </div>
+    </div>
+    <div class="barhelp" id="modehelp"></div>
+  </div>
+
+  <div class="prices">
+    <div class="card pricecard yes">
+      <div class="plabel">YES price</div>
+      <div class="pval" id="pYesVal"></div>
+      <div class="pchance" id="pYesChance"></div>
+      <div class="pbar"><div class="pbar-fill" id="pYesBar" style="width:50%"></div></div>
+    </div>
+    <div class="card pricecard no">
+      <div class="plabel">NO price</div>
+      <div class="pval" id="pNoVal"></div>
+      <div class="pchance" id="pNoChance"></div>
+      <div class="pbar"><div class="pbar-fill" id="pNoBar" style="width:50%"></div></div>
+    </div>
+  </div>
+
+  <div class="card formula">
+    <div class="flabel">YES price, step by step (this is the softmax):</div>
+    <div>p_yes = e^(q_yes/b) &divide; ( e^(q_yes/b) + e^(q_no/b) )</div>
+    <div class="fdim">your shares: q_yes = <span id="fqyes"></span>, &nbsp; q_no = <span id="fqno"></span>, &nbsp; b = <span id="fb"></span></div>
+    <div class="fdim">weights: <span id="fw1"></span> &divide; ( <span id="fw2"></span> + <span id="fw3"></span> ) = <span id="fw4"></span> &divide; <span id="fsum"></span> = <span class="fres" id="fres"></span></div>
+  </div>
+
+  <div class="ticker">
+    <div class="card tcard you">
+      <div class="thead"><span>Your account</span><span class="tdelta" id="netdelta"></span></div>
+      <div class="stat"><span class="label">Cash</span><span class="val" id="wcash"></span></div>
+      <div class="stat"><span class="label">YES held</span><span class="val yes" id="wyes"></span></div>
+      <div class="stat"><span class="label">NO held</span><span class="val no" id="wno"></span></div>
+    </div>
+    <div class="card tcard">
+      <div class="thead"><span>The operator (AMM)</span></div>
+      <div class="stat"><span class="label">Total committed, C</span><span class="val" id="ctot"></span></div>
+      <div class="stat"><span class="label">Seed (max exposure)</span><span class="val" id="seedval2"></span></div>
+      <div class="stat"><span class="label">Fees earned</span><span class="val fee" id="opfees"></span></div>
+    </div>
+  </div>
+  <p class="footnote">Net cash = current cash − starting $500. It only equals true profit/loss once you resolve the market — before that, your held shares still carry unrealized value.</p>
+
+  <div class="card tradecard" id="tradecard">
+    <div class="traderow">
+      <span class="tradeside yes">YES</span>
+      <div class="tradebtns">
+        <button class="tbtn buy" data-side="YES" data-dir="buy" data-qty="10">Buy 10</button>
+        <button class="tbtn buy" data-side="YES" data-dir="buy" data-qty="50">Buy 50</button>
+        <button class="tbtn sell" data-side="YES" data-dir="sell" data-qty="10">Sell 10</button>
+        <button class="tbtn sell" data-side="YES" data-dir="sell" data-qty="50">Sell 50</button>
+      </div>
+    </div>
+    <div class="traderow">
+      <span class="tradeside no">NO</span>
+      <div class="tradebtns">
+        <button class="tbtn buy" data-side="NO" data-dir="buy" data-qty="10">Buy 10</button>
+        <button class="tbtn buy" data-side="NO" data-dir="buy" data-qty="50">Buy 50</button>
+        <button class="tbtn sell" data-side="NO" data-dir="sell" data-qty="10">Sell 10</button>
+        <button class="tbtn sell" data-side="NO" data-dir="sell" data-qty="50">Sell 50</button>
+      </div>
+    </div>
+    <div class="status" id="statusMsg"></div>
+  </div>
+
+  <div class="card lastcard">
+    <div class="llabel">Last trade</div>
+    <div id="lastBody"><span class="lastempty">No trades yet — try a button above.</span></div>
+  </div>
+
+  <div class="card resolvecard" id="resolveCard">
+    <div class="rlabel">Resolve the market</div>
+    <div class="rsub">Pick the winning outcome. Every winning share pays $1 (minus commission, if "on close" is selected); every losing share pays $0.</div>
+    <div class="rbtns">
+      <button class="rbtn yes" id="resolveYesBtn">Resolve: YES wins</button>
+      <button class="rbtn no" id="resolveNoBtn">Resolve: NO wins</button>
+    </div>
+  </div>
+
+  <div class="card closed" id="closedCard" style="display:none">
+    <div class="closed-title" id="closedTitle"></div>
+    <div class="settletable" id="settleTable"></div>
+    <div class="conserve" id="conserveLine"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="restartBtn">Restart (same b)</button>
+    <button class="btn primary" id="newMarketBtn">New market</button>
+  </div>
+
+</div>
+
+<script>
+const START_CASH = 500;
+const FEE = 0.01;
+const B_MIN = 20, B_MAX = 400;
+
+let b = 100;
+let qYes = 0, qNo = 0;
+let history = [];
+let mode = 'purchase';
+let resolved = false;
+let resolvedOutcome = null;
+let resolvedSummary = null;
+let statusMsg = '';
+let lastTrade = null;
+
+function C(qy, qn, bb){ return bb*Math.log(Math.exp(qy/bb)+Math.exp(qn/bb)); }
+function seedOf(bb){ return C(0,0,bb); }
+function weightsAt(qy,qn,bb){ return {wy:Math.exp(qy/bb), wn:Math.exp(qn/bb)}; }
+function priceYesAt(qy,qn,bb){ const w=weightsAt(qy,qn,bb); return w.wy/(w.wy+w.wn); }
+
+function money(v){ const a=Math.abs(v).toFixed(2); return (v<0?'-$':'$')+a; }
+function deltaStr(v){ if(Math.abs(v)<0.005) return '±$0.00'; return (v>0?'+$':'-$')+Math.abs(v).toFixed(2); }
+
+function computeWallet(uptoMode){
+  let cash = START_CASH, operatorFees = 0;
+  history.forEach(h=>{
+    if(h.dir==='buy'){
+      cash -= h.raw;
+      if(uptoMode==='purchase'){ const fee=Math.abs(h.raw)*FEE; cash-=fee; operatorFees+=fee; }
+    } else {
+      cash += (-h.raw);
+      if(uptoMode==='purchase'){ const fee=Math.abs(h.raw)*FEE; cash-=fee; operatorFees+=fee; }
+    }
+  });
+  return {cash, operatorFees};
+}
+
+function doTrade(side, qty, dir){
+  if(resolved){ statusMsg='Market is resolved — start a new market to trade again.'; render(); return; }
+  let actualQty = qty;
+  if(dir==='sell'){
+    const held = side==='YES' ? qYes : qNo;
+    if(held<=0){ statusMsg="You don't hold any "+side+" to sell."; render(); return; }
+    actualQty = Math.min(qty, held);
+  }
+  const before = C(qYes,qNo,b);
+  let tYes=qYes, tNo=qNo;
+  if(side==='YES'){ tYes += dir==='buy'?actualQty:-actualQty; } else { tNo += dir==='buy'?actualQty:-actualQty; }
+  const after = C(tYes,tNo,b);
+  const raw = after-before;
+
+  if(dir==='buy'){
+    const wallet = computeWallet(mode);
+    const fee = mode==='purchase' ? raw*FEE : 0;
+    if(raw+fee > wallet.cash+1e-9){
+      statusMsg = 'Not enough cash for this trade.';
+      render();
+      return;
+    }
+  }
+
+  qYes = tYes; qNo = tNo;
+  history.push({dir, side, qty:actualQty, raw});
+  lastTrade = {dir, side, qty:actualQty, raw};
+  statusMsg = (dir==='sell' && actualQty<qty) ? ('Only '+actualQty+' '+side+' available — sold all of it.') : '';
+  render();
+}
+
+function resolveMarket(outcome){
+  if(resolved) return;
+  const wallet = computeWallet(mode);
+  const finalQ = outcome==='YES' ? qYes : qNo;
+  const payoutBase = finalQ*1.0;
+  const feeAtRes = mode==='close' ? payoutBase*FEE : 0;
+  const actualPayout = payoutBase - feeAtRes;
+  const finalCash = wallet.cash + actualPayout;
+  const operatorFeesTotal = wallet.operatorFees + feeAtRes;
+  const seedAmt = seedOf(b);
+  const Cfinal = C(qYes,qNo,b);
+  const operatorNet = -seedAmt + operatorFeesTotal + (Cfinal - payoutBase);
+
+  resolved = true;
+  resolvedOutcome = outcome;
+  resolvedSummary = {payoutBase, feeAtRes, actualPayout, finalCash, operatorFeesTotal, operatorNet, seedAmt, Cfinal, walletCashBefore:wallet.cash};
+  render();
+}
+
+function newMarket(){
+  qYes=0; qNo=0; history=[]; resolved=false; resolvedOutcome=null; resolvedSummary=null; statusMsg=''; lastTrade=null;
+  render();
+}
+
+function setB(newB){
+  b = newB;
+  newMarket();
+}
+
+/* ---------- render ---------- */
+function render(){
+  document.getElementById('bslider').value = b;
+  document.getElementById('bval').textContent = 'b = '+b;
+  const seedNow = seedOf(b);
+  document.getElementById('seedval').textContent = money(seedNow);
+  document.getElementById('seedval2').textContent = money(seedNow);
+
+  document.querySelectorAll('.seg').forEach(el=>el.classList.toggle('active', el.dataset.mode===mode));
+  document.getElementById('modehelp').textContent = mode==='purchase'
+    ? "Every buy or sell pays 1% of the trade value to the operator, on top of the AMM price."
+    : "No fee on individual trades. When you resolve the market, your winning payout is reduced by 1%, and that goes to the operator.";
+
+  const w = weightsAt(qYes,qNo,b);
+  const sum = w.wy+w.wn;
+  const pYes = w.wy/sum, pNo = w.wn/sum;
+  document.getElementById('pYesVal').textContent = '$'+pYes.toFixed(2);
+  document.getElementById('pNoVal').textContent = '$'+pNo.toFixed(2);
+  document.getElementById('pYesChance').textContent = Math.round(pYes*100)+'% implied chance';
+  document.getElementById('pNoChance').textContent = Math.round(pNo*100)+'% implied chance';
+  document.getElementById('pYesBar').style.width = (pYes*100)+'%';
+  document.getElementById('pNoBar').style.width = (pNo*100)+'%';
+
+  document.getElementById('fqyes').textContent = qYes;
+  document.getElementById('fqno').textContent = qNo;
+  document.getElementById('fb').textContent = b;
+  document.getElementById('fw1').textContent = w.wy.toFixed(2);
+  document.getElementById('fw2').textContent = w.wy.toFixed(2);
+  document.getElementById('fw3').textContent = w.wn.toFixed(2);
+  document.getElementById('fw4').textContent = w.wy.toFixed(2);
+  document.getElementById('fsum').textContent = sum.toFixed(2);
+  document.getElementById('fres').textContent = pYes.toFixed(2);
+
+  const wallet = computeWallet(mode);
+  const net = wallet.cash - START_CASH;
+  const dcls = net>0.005?'up':(net<-0.005?'down':'flat');
+  document.getElementById('netdelta').textContent = deltaStr(net);
+  document.getElementById('netdelta').className = 'tdelta '+dcls;
+  document.getElementById('wcash').textContent = money(wallet.cash);
+  document.getElementById('wyes').textContent = qYes;
+  document.getElementById('wno').textContent = qNo;
+
+  document.getElementById('ctot').textContent = money(C(qYes,qNo,b));
+  document.getElementById('opfees').textContent = money(wallet.operatorFees);
+
+  document.getElementById('statusMsg').textContent = statusMsg;
+
+  if(lastTrade){
+    const t = lastTrade;
+    const baseAmt = Math.abs(t.raw);
+    const fee = mode==='purchase' ? baseAmt*FEE : 0;
+    const label = (t.dir==='buy'?'Bought ':'Sold ')+t.qty+' '+t.side;
+    let html = '<div class="lastrow"><span>'+label+'</span><span class="lv">'+(t.dir==='buy'?'−':'+')+money(baseAmt).slice(1)+'</span></div>';
+    if(mode==='purchase'){
+      html += '<div class="lastrow"><span>Commission (1%)</span><span class="lv" style="color:var(--fee)">−'+money(fee).slice(1)+'</span></div>';
+    } else {
+      html += '<div class="lastrow"><span>Commission</span><span class="lv" style="color:var(--text-faint)">none in "on close" mode</span></div>';
+    }
+    document.getElementById('lastBody').innerHTML = html;
+  } else {
+    document.getElementById('lastBody').innerHTML = '<span class="lastempty">No trades yet — try a button above.</span>';
+  }
+
+  // trade button enable/disable
+  document.querySelectorAll('.tbtn').forEach(btn=>{
+    if(resolved){ btn.disabled = true; return; }
+    if(btn.dataset.dir==='sell'){
+      const held = btn.dataset.side==='YES' ? qYes : qNo;
+      btn.disabled = held<=0;
+    } else {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('resolveYesBtn').disabled = resolved;
+  document.getElementById('resolveNoBtn').disabled = resolved;
+
+  if(resolved){
+    document.getElementById('tradecard').style.opacity = '0.45';
+    document.getElementById('tradecard').style.pointerEvents = 'none';
+    document.getElementById('resolveCard').style.display = 'none';
+    document.getElementById('closedCard').style.display = 'block';
+    document.getElementById('closedCard').className = 'card closed' + (resolvedOutcome==='NO' ? ' no-outcome' : '');
+    document.getElementById('closedTitle').textContent = 'Market resolved: '+resolvedOutcome+' wins';
+    const s = resolvedSummary;
+    const yourNet = s.finalCash - START_CASH;
+    let html = '';
+    html += '<div class="settlerow"><span>Cash before resolving</span><span class="sv">'+money(s.walletCashBefore)+'</span></div>';
+    html += '<div class="settlerow"><span>Winning payout ('+(resolvedOutcome==='YES'?qYes:qNo)+' × $1)</span><span class="sv">'+money(s.payoutBase)+'</span></div>';
+    if(mode==='close'){
+      html += '<div class="settlerow"><span>On-close commission (1%)</span><span class="sv" style="color:var(--fee)">−'+money(s.feeAtRes).slice(1)+'</span></div>';
+    }
+    html += '<div class="settlerow total"><span>Your final cash</span><span class="sv">'+money(s.finalCash)+'</span></div>';
+    html += '<div class="settlerow"><span>Your net vs. starting $500</span><span class="sv" style="color:'+(yourNet>=0?'var(--yes)':'var(--no)')+'">'+deltaStr(yourNet)+'</span></div>';
+    html += '<div class="settlerow"><span>Operator fees earned (total)</span><span class="sv" style="color:var(--fee)">'+money(s.operatorFeesTotal)+'</span></div>';
+    html += '<div class="settlerow"><span>Operator net (seed − payouts + fees)</span><span class="sv" style="color:'+(s.operatorNet>=0?'var(--yes)':'var(--no)')+'">'+deltaStr(s.operatorNet)+'</span></div>';
+    document.getElementById('settleTable').innerHTML = html;
+    document.getElementById('conserveLine').textContent = 'Your net + operator net = '+deltaStr(yourNet+s.operatorNet)+' — money is conserved either way.';
+  } else {
+    document.getElementById('tradecard').style.opacity = '1';
+    document.getElementById('tradecard').style.pointerEvents = 'auto';
+    document.getElementById('resolveCard').style.display = 'block';
+    document.getElementById('closedCard').style.display = 'none';
+  }
+}
+
+document.getElementById('bslider').addEventListener('input', (e)=> setB(parseInt(e.target.value)) );
+document.querySelectorAll('.tbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=> doTrade(btn.dataset.side, parseInt(btn.dataset.qty), btn.dataset.dir) );
+});
+document.querySelectorAll('.seg').forEach(el=> el.addEventListener('click', ()=>{ mode = el.dataset.mode; render(); }) );
+document.getElementById('resolveYesBtn').addEventListener('click', ()=> resolveMarket('YES') );
+document.getElementById('resolveNoBtn').addEventListener('click', ()=> resolveMarket('NO') );
+document.getElementById('restartBtn').addEventListener('click', newMarket );
+document.getElementById('newMarketBtn').addEventListener('click', newMarket );
+
+render();
+</script>
+</body>
+</html>

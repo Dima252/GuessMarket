@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Every event in this file breaks a different rule, to check that all the
+     problems are reported together and that nothing is loaded. -->
+<Guess-Market>
+    <GM-events>
+        <GM-event name="Duplicate Id A">
+            <id>5</id>
+            <description>The first event to use the id 5.</description>
+            <comision type="on-purchase">10</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>100</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+        <GM-event name="Duplicate Id B">
+            <id>5</id>
+            <description>Uses an id that is already taken.</description>
+            <comision type="on-purchase">10</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>100</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+        <GM-event name="Commission Too High">
+            <id>6</id>
+            <description>The commission is above the allowed maximum.</description>
+            <comision type="on-close">91</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>100</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+        <GM-event name="Unknown Commission Type">
+            <id>7</id>
+            <description>The commission type is not one of the two legal values.</description>
+            <comision type="on-monday">10</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>100</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+        <GM-event name="Three Options">
+            <id>8</id>
+            <description>An event must have exactly two options.</description>
+            <comision type="on-close">10</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+                <GM-option>Maybe</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>100</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+        <GM-event name="Broken Liquidity">
+            <id>9</id>
+            <description>The liquidity value is not a number.</description>
+            <comision type="on-close">10</comision>
+            <GM-options>
+                <GM-option>Yes</GM-option>
+                <GM-option>No</GM-option>
+            </GM-options>
+            <GM-method>
+                <GM-LMSR>
+                    <b>a lot</b>
+                </GM-LMSR>
+            </GM-method>
+        </GM-event>
+    </GM-events>
+</Guess-Market>

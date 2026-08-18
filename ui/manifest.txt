@@ -1,0 +1,2 @@
+Main-Class: market.ui.ConsoleApp
+Class-Path: guess-market-engine.jar

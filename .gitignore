@@ -1,0 +1,11 @@
+# build output
+build/
+dist/
+
+# editors
+.idea/
+*.iml
+.vscode/
+
+# assembled submission folder
+322810060_322582008/
