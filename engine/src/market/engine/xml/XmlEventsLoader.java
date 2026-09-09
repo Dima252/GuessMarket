@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,14 +26,24 @@ import org.xml.sax.SAXParseException;
 import market.engine.model.CommissionType;
 import market.engine.model.Event;
 import market.engine.model.EventOption;
+import market.engine.model.LmsrMethod;
+import market.engine.model.OrderBookMethod;
+import market.engine.model.TradingMethod;
+import market.engine.model.User;
 
 /**
- * Reads an events file of the exercise 1 schema and checks that it makes sense.
+ * Reads an events file of the exercise 2 schema and checks that it makes sense.
  * <p>
  * The file is guaranteed to be schema valid but not necessarily application
  * valid, so every rule of the specification is checked here. All problems found
- * are collected and reported together, and the events are handed over only when
- * the file is completely sound.
+ * are collected and reported together, and the contents are handed over only
+ * when the file is completely sound.
+ * <p>
+ * Where the appendix of the specification and the schema published with the
+ * course disagree on the spelling of a name, both spellings are accepted: the
+ * schema of exercise 1 really did write {@code comision} with one m, and the
+ * appendix of exercise 2 prints {@code GM-mareket-maker} and {@code inital}
+ * where the real schema writes them correctly.
  */
 public final class XmlEventsLoader {
 
@@ -44,9 +55,14 @@ public final class XmlEventsLoader {
     private static final String OPTION = "GM-option";
     private static final String METHOD = "GM-method";
     private static final String LMSR = "GM-LMSR";
+    private static final String ORDER_BOOK = "GM-order-book";
+    private static final String USERS = "GM-users";
+    private static final String USER = "GM-user";
+    private static final String INITIAL_CASH = "initial-cash";
 
-    /** The schema spells it with a single m; the table in the specification uses two. Both are accepted. */
-    private static final List<String> COMMISSION_NAMES = List.of("comision", "commission");
+    private static final List<String> COMMISSION_NAMES = List.of("commission", "comision");
+    private static final List<String> MARKET_MAKER_NAMES = List.of("GM-market-maker", "GM-mareket-maker");
+    private static final List<String> INITIAL_ATTRIBUTES = List.of("initial", "inital");
 
     private static final int MIN_COMMISSION = 0;
     private static final int MAX_COMMISSION = 90;
@@ -58,8 +74,7 @@ public final class XmlEventsLoader {
             return LoadOutcome.failed(pathProblems);
         }
         try {
-            Document document = parse(new File(path.trim()));
-            return readEvents(document);
+            return read(parse(new File(path.trim())));
         } catch (SAXParseException e) {
             return LoadOutcome.failed(List.of("The file is not a valid XML document: " + e.getMessage()
                     + " (line " + e.getLineNumber() + ", column " + e.getColumnNumber() + ")."));
@@ -115,7 +130,7 @@ public final class XmlEventsLoader {
         return builder.parse(file);
     }
 
-    private LoadOutcome readEvents(Document document) {
+    private LoadOutcome read(Document document) {
         Element root = document.getDocumentElement();
         if (root == null || !ROOT.equals(root.getTagName())) {
             String found = root == null ? "nothing" : "<" + root.getTagName() + ">";
@@ -126,22 +141,90 @@ public final class XmlEventsLoader {
         if (eventsElement.isEmpty()) {
             return LoadOutcome.failed(List.of("The file does not contain a <" + EVENTS + "> element."));
         }
+        Optional<Element> usersElement = firstChild(root, USERS);
+        if (usersElement.isEmpty()) {
+            return LoadOutcome.failed(List.of("The file does not contain a <" + USERS + "> element. "
+                    + "This exercise reads files of the exercise 2 format, which describes the users of the "
+                    + "system as well as its events."));
+        }
 
         List<Element> eventElements = children(eventsElement.get(), EVENT);
         if (eventElements.isEmpty()) {
             return LoadOutcome.failed(List.of("The file does not contain any <" + EVENT + "> element."));
         }
+        List<Element> userElements = children(usersElement.get(), USER);
+        if (userElements.isEmpty()) {
+            return LoadOutcome.failed(List.of("The file does not contain any <" + USER + "> element."));
+        }
 
         List<String> errors = new ArrayList<>();
-        List<Event> events = new ArrayList<>();
+        Map<Integer, Event> eventsById = new LinkedHashMap<>();
         Map<Integer, String> idsSeen = new HashMap<>();
 
         for (int position = 0; position < eventElements.size(); position++) {
             new EventReader(eventElements.get(position), position + 1, idsSeen, errors)
                     .read()
-                    .ifPresent(events::add);
+                    .ifPresent(event -> eventsById.put(event.id(), event));
         }
-        return errors.isEmpty() ? LoadOutcome.loaded(events) : LoadOutcome.failed(errors);
+
+        List<User> users = new ArrayList<>();
+        Map<String, String> namesSeen = new HashMap<>();
+        Map<Integer, List<String>> marketMakersByEvent = new LinkedHashMap<>();
+
+        for (int position = 0; position < userElements.size(); position++) {
+            new UserReader(userElements.get(position), position + 1, namesSeen, errors)
+                    .read()
+                    .ifPresent(read -> {
+                        users.add(read.user());
+                        for (int eventId : read.marketMakerOf()) {
+                            marketMakersByEvent
+                                    .computeIfAbsent(eventId, key -> new ArrayList<>())
+                                    .add(read.user().name());
+                        }
+                    });
+        }
+
+        checkMarketMakers(eventsById, marketMakersByEvent, users, errors);
+
+        if (!errors.isEmpty()) {
+            return LoadOutcome.failed(errors);
+        }
+        return LoadOutcome.loaded(new ArrayList<>(eventsById.values()), users);
+    }
+
+    /**
+     * Every event needs exactly one market maker, and a market maker may only
+     * point at an event that is really there.
+     */
+    private void checkMarketMakers(Map<Integer, Event> eventsById,
+                                   Map<Integer, List<String>> marketMakersByEvent,
+                                   List<User> users,
+                                   List<String> errors) {
+        Map<String, User> usersByName = new LinkedHashMap<>();
+        for (User user : users) {
+            usersByName.put(user.name(), user);
+        }
+
+        for (Map.Entry<Integer, List<String>> entry : marketMakersByEvent.entrySet()) {
+            if (!eventsById.containsKey(entry.getKey())) {
+                errors.add("The user \"" + entry.getValue().get(0) + "\" is set as the market maker of event "
+                        + entry.getKey() + ", but there is no event with that id in the file.");
+            }
+        }
+
+        for (Event event : eventsById.values()) {
+            List<String> makers = marketMakersByEvent.getOrDefault(event.id(), List.of());
+            if (makers.isEmpty()) {
+                errors.add("The event \"" + event.name() + "\" (id " + event.id()
+                        + ") has no market maker. Every event must be assigned to exactly one user.");
+            } else if (makers.size() > 1) {
+                errors.add("The event \"" + event.name() + "\" (id " + event.id()
+                        + ") has " + makers.size() + " market makers (" + String.join(", ", makers)
+                        + "), but every event must be assigned to exactly one user.");
+            } else {
+                event.assignMarketMaker(usersByName.get(makers.get(0)));
+            }
+        }
     }
 
     /** Reads and validates one event element, appending anything wrong with it to the shared error list. */
@@ -158,8 +241,7 @@ public final class XmlEventsLoader {
             this.position = position;
             this.idsSeen = idsSeen;
             this.errors = errors;
-            String attribute = element.getAttribute("name").trim();
-            this.name = attribute.isEmpty() ? "" : attribute;
+            this.name = element.getAttribute("name").trim();
         }
 
         private Optional<Event> read() {
@@ -173,14 +255,13 @@ public final class XmlEventsLoader {
             Integer commission = readCommission();
             CommissionType commissionType = readCommissionType();
             List<EventOption> options = readOptions();
-            Integer b = readLiquidity();
+            TradingMethod method = readMethod(options.size());
 
             if (errors.size() != errorsBefore || id == null || commission == null
-                    || commissionType == null || b == null) {
+                    || commissionType == null || method == null) {
                 return Optional.empty();
             }
-            return Optional.of(new Event(
-                    id, name, description, commission, commissionType, options, b));
+            return Optional.of(new Event(id, name, description, commission, commissionType, options, method));
         }
 
         private Integer readId() {
@@ -234,8 +315,7 @@ public final class XmlEventsLoader {
                 return null;
             }
             String type = commissionElement.get().getAttribute("type");
-            Optional<CommissionType> parsed =
-                    CommissionType.parse(type);
+            Optional<CommissionType> parsed = CommissionType.parse(type);
             if (parsed.isEmpty()) {
                 error("has the commission type \"" + type.trim() + "\", but only "
                         + CommissionType.legalValues() + " are allowed.");
@@ -245,13 +325,7 @@ public final class XmlEventsLoader {
         }
 
         private Optional<Element> commissionElement() {
-            for (String candidate : COMMISSION_NAMES) {
-                Optional<Element> found = firstChild(element, candidate);
-                if (found.isPresent()) {
-                    return found;
-                }
-            }
-            return Optional.empty();
+            return firstChildOfAny(element, COMMISSION_NAMES);
         }
 
         private List<EventOption> readOptions() {
@@ -278,18 +352,33 @@ public final class XmlEventsLoader {
             return options;
         }
 
-        private Integer readLiquidity() {
+        /** Either an LMSR method or an order book method, and exactly one of the two. */
+        private TradingMethod readMethod(int optionCount) {
             Optional<Element> method = firstChild(element, METHOD);
             if (method.isEmpty()) {
                 error("is missing its <" + METHOD + "> element.");
                 return null;
             }
             Optional<Element> lmsr = firstChild(method.get(), LMSR);
-            if (lmsr.isEmpty()) {
-                error("is missing its <" + LMSR + "> element. Exercise 1 supports LMSR events only.");
+            Optional<Element> book = firstChild(method.get(), ORDER_BOOK);
+
+            if (lmsr.isPresent() && book.isPresent()) {
+                error("declares both a <" + LMSR + "> and a <" + ORDER_BOOK
+                        + "> method, but an event is traded in exactly one way.");
                 return null;
             }
-            Optional<Element> bElement = firstChild(lmsr.get(), "b");
+            if (lmsr.isPresent()) {
+                return readLmsr(lmsr.get(), optionCount);
+            }
+            if (book.isPresent()) {
+                return readOrderBook(book.get(), optionCount);
+            }
+            error("declares neither a <" + LMSR + "> nor a <" + ORDER_BOOK + "> method.");
+            return null;
+        }
+
+        private TradingMethod readLmsr(Element lmsr, int optionCount) {
+            Optional<Element> bElement = firstChild(lmsr, "b");
             if (bElement.isEmpty()) {
                 error("is missing the liquidity value <b> of its LMSR method.");
                 return null;
@@ -304,26 +393,181 @@ public final class XmlEventsLoader {
                 error("has a liquidity value of " + b + ", but it must be a positive number.");
                 return null;
             }
-            return b;
+            return new LmsrMethod(b, optionCount);
+        }
+
+        private TradingMethod readOrderBook(Element book, int optionCount) {
+            Integer d = readIntegerAttribute(book, List.of("d"), "base value d");
+            Integer initial = readIntegerAttribute(book, INITIAL_ATTRIBUTES, "initial investment");
+            Boolean allowMint = readBooleanAttribute(book);
+
+            if (d == null || initial == null || allowMint == null) {
+                return null;
+            }
+            if (d <= 0) {
+                error("has a base value d of " + d + ", but it must be a positive number.");
+                return null;
+            }
+            if (initial < 0) {
+                error("has an initial investment of " + initial + ", but it cannot be negative.");
+                return null;
+            }
+            if (initial % d != 0) {
+                error("has an initial investment of " + initial + ", which does not divide into whole pairs "
+                        + "of shares at a base value of " + d + ".");
+                return null;
+            }
+            return new OrderBookMethod(d, initial, allowMint, optionCount);
+        }
+
+        private Integer readIntegerAttribute(Element element, List<String> names, String description) {
+            for (String name : names) {
+                if (element.hasAttribute(name)) {
+                    String text = element.getAttribute(name).trim();
+                    Integer value = parseInteger(text);
+                    if (value == null) {
+                        error("has the " + description + " \"" + text + "\", which is not a whole number.");
+                    }
+                    return value;
+                }
+            }
+            error("is missing the " + description + " (\"" + names.get(0) + "\") of its order book.");
+            return null;
+        }
+
+        private Boolean readBooleanAttribute(Element element) {
+            if (!element.hasAttribute("allow-mint")) {
+                error("is missing the \"allow-mint\" setting of its order book.");
+                return null;
+            }
+            String text = element.getAttribute("allow-mint").trim();
+            if ("true".equalsIgnoreCase(text)) {
+                return Boolean.TRUE;
+            }
+            if ("false".equalsIgnoreCase(text)) {
+                return Boolean.FALSE;
+            }
+            error("has \"" + text + "\" as its allow-mint setting, but only true or false are allowed.");
+            return null;
         }
 
         private void error(String problem) {
             String title = name.isEmpty() ? "" : " (\"" + name + "\")";
             errors.add("Event number " + position + title + " " + problem);
         }
+    }
 
-        private static Integer parseInteger(String text) {
-            try {
-                return Integer.valueOf(text.trim());
-            } catch (NumberFormatException e) {
+    /** Reads and validates one user element, together with the events it carries. */
+    private static final class UserReader {
+
+        private final Element element;
+        private final int position;
+        private final Map<String, String> namesSeen;
+        private final List<String> errors;
+        private final String name;
+
+        private UserReader(Element element, int position, Map<String, String> namesSeen, List<String> errors) {
+            this.element = element;
+            this.position = position;
+            this.namesSeen = namesSeen;
+            this.errors = errors;
+            this.name = element.getAttribute("name").trim();
+        }
+
+        private Optional<ReadUser> read() {
+            int errorsBefore = errors.size();
+
+            if (name.isEmpty()) {
+                error("has an empty name attribute.");
+            } else {
+                String previous = namesSeen.putIfAbsent(name.toLowerCase(Locale.US), name);
+                if (previous != null) {
+                    error("has the same name as an earlier user (\"" + previous
+                            + "\"). Every user must have a name of its own.");
+                }
+            }
+            Integer cash = readInitialCash();
+            List<Integer> marketMakerOf = readMarketMakerEvents();
+
+            if (errors.size() != errorsBefore || cash == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new ReadUser(new User(name, cash), marketMakerOf));
+        }
+
+        private Integer readInitialCash() {
+            Optional<Element> cashElement = firstChild(element, INITIAL_CASH);
+            if (cashElement.isEmpty()) {
+                error("is missing its <" + INITIAL_CASH + "> element.");
                 return null;
             }
+            String text = text(cashElement.get());
+            Integer cash = parseInteger(text);
+            if (cash == null) {
+                error("has the initial cash \"" + text + "\", which is not a whole number.");
+                return null;
+            }
+            if (cash <= 0) {
+                error("starts with " + cash + " in the account, but every user must start with more than 0.");
+                return null;
+            }
+            return cash;
+        }
+
+        private List<Integer> readMarketMakerEvents() {
+            Optional<Element> marketMaker = firstChildOfAny(element, MARKET_MAKER_NAMES);
+            if (marketMaker.isEmpty()) {
+                return List.of();
+            }
+            List<Integer> eventIds = new ArrayList<>();
+            for (Element event : children(marketMaker.get(), "event")) {
+                String text = event.getAttribute("id").trim();
+                Integer id = parseInteger(text);
+                if (id == null) {
+                    error("is set as the market maker of the event \"" + text
+                            + "\", which is not a whole number.");
+                    continue;
+                }
+                if (eventIds.contains(id)) {
+                    error("is set as the market maker of event " + id + " more than once.");
+                    continue;
+                }
+                eventIds.add(id);
+            }
+            return eventIds;
+        }
+
+        private void error(String problem) {
+            String title = name.isEmpty() ? "" : " (\"" + name + "\")";
+            errors.add("User number " + position + title + " " + problem);
+        }
+    }
+
+    /** A user together with the ids of the events they were declared the market maker of. */
+    private record ReadUser(User user, List<Integer> marketMakerOf) {
+    }
+
+    private static Integer parseInteger(String text) {
+        try {
+            return Integer.valueOf(text.trim());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 
     private static Optional<Element> firstChild(Element parent, String name) {
         List<Element> found = children(parent, name);
         return found.isEmpty() ? Optional.empty() : Optional.of(found.get(0));
+    }
+
+    private static Optional<Element> firstChildOfAny(Element parent, List<String> names) {
+        for (String name : names) {
+            Optional<Element> found = firstChild(parent, name);
+            if (found.isPresent()) {
+                return found;
+            }
+        }
+        return Optional.empty();
     }
 
     private static List<Element> children(Element parent, String name) {

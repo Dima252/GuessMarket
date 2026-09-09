@@ -1,5 +1,9 @@
 package market.engine.dto;
 
-/** The current value of one option and the amount of shares bought of it. */
-public record OptionStateDto(String name, double value, long sharesBought) {
+/**
+ * The state of one option: what it is currently worth and how many shares of it
+ * exist. The value is {@code null} for an order book option that nobody is
+ * quoting on both sides, where there is no honest middle price to show.
+ */
+public record OptionStateDto(String name, Double value, long sharesBought) {
 }

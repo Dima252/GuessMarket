@@ -6,7 +6,11 @@ Weight 40%, max grade 110, due **12.9.26**. Same grading setup as Ex1: a clean W
 
 ---
 
-> **Where we stand.** Ex1 is submitted: the engine and the console module are done and are reused as they are. The spec in this folder is now **v3**, which is the version Ex2, Ex3 and Ex4 are graded against.
+> **Where we stand.** The engine of exercise 2 is written and checked: users and accounts, market makers, the three phases, the order book with its matching and minting, and the v2 file format with all its validations. What is left is the JavaFX application in front of it.
+>
+> `verify.bat` runs 125 checks against the two reference documents of the course - the worked example of appendix A and the order book simulation - and they all pass. Run it after every change.
+>
+> The console of exercise 1 is no longer built: the engine API now names the user who is acting, and the console was written for a single implicit user. Its source stays in `ui/` as a record; exercise 1 is submitted and was graded on the jars it shipped with.
 
 ## 0. What Ex2 adds on top of Ex1
 
@@ -46,12 +50,15 @@ Either way, rehearse it in a fresh folder. A missing JavaFX runtime at the grade
 
 ```
 GuessMarket/
-├─ engine/src/            # grows: users, MM, event phases, order book
-├─ ui/src/                # the Ex1 console module, kept and still building
-├─ fx/src/                # NEW - the JavaFX module (main + every screen)
+├─ engine/src/            # done: users, market makers, phases, order book
+├─ ui/src/                # the Ex1 console, no longer built (see ui/README.md)
+├─ fx/src/                # NEXT - the JavaFX module (main + every screen)
 │  └─ market/fx/...
+├─ verification/          # the checks that reproduce the two reference documents
 ├─ testing_files/EX2/     # the course files for this exercise
-├─ build.bat              # extended: compiles fx against the JavaFX SDK
+├─ extra-test-files/EX2/  # fixtures of our own, valid and faulty
+├─ build.bat              # compiles the engine; gains the fx module next
+├─ verify.bat             # compiles the engine and runs every check
 └─ packaging/run-fx.bat   # the launcher shipped inside dist
 ```
 
@@ -66,33 +73,38 @@ The Ex2 submission is one zip holding `guess-market-engine.jar`, `guess-market-f
 | Class | Responsibility |
 |---|---|
 | `User` | unique name, `Account`, `blocked` flag, holdings per (event, option), the events it is MM of |
-| `Holding` | shares held of one option together with the money paid for them (Ex2 shows both) |
+| `Participation` | what one user holds inside one event: shares and money spent per option, commission paid, and that user's own lines of the history |
 | `EventPhase` (enum) | `NOT_STARTED`, `ACTIVE`, `CLOSED` — replaces the Ex1 `EventStatus` |
 | `TradingMethod` (interface) | what an event does on open, on a trade, on close, and what it reports |
 | `LmsrMethod` | the Ex1 mathematics, now funded by the MM instead of appearing out of nowhere |
 | `OrderBookMethod` | `d`, `allowMint`, `initial`, and one `OrderBook` per option |
 | `OrderBook` | the resting orders, the matching, the mint, and the LAST/BID/ASK/MID/SPREAD figures |
-| `Order` | user, side (BUY/SELL), option, quantity remaining, price per share |
+| `Order` | user, side (BUY/SELL), quantity remaining, price per share |
+| `OrderOutcome` | what an order executed and how much of it is still waiting |
 
-`Event` gains a market maker and a phase, and delegates buying and settling to its `TradingMethod`. `Account` is unchanged and still never clamps.
+`Event` gains a market maker, a phase and its participants, and delegates pricing and matching to its `TradingMethod` while keeping every movement of money in one place. `Account` serves both an event and a user, and still never clamps.
 
 ### 3.2 Money movements — the part that is graded numerically
 
 | Moment | LMSR | Order Book |
 |---|---|---|
-| The MM opens the event | the MM pays `C(0,0) = b·ln 2` from his account into the event account | the MM pays `initial` into the event account and receives `initial / d` **pairs** of shares (initial=100, d=1 → 100 YES + 100 NO for $100) |
+| The MM opens the event | the MM pays `C(0,0) = b·ln 2` into the event account | the MM pays `initial` into the event account and receives `initial / d` **pairs** of shares (initial=100, d=1 → 100 YES + 100 NO for $100) |
 | A trade | the buyer pays `C(after) − C(before)` into the event account | money moves from buyer to seller; on a **mint**, both sides pay into the event account |
 | Commission `on-purchase` | the buyer pays the percentage on top, into the **MM's account** | the buyer pays the percentage of the trade, into the **MM's account** |
 | Commission `on-close` | the winners pay the percentage of their payout, into the **MM's account** | the same |
 | The MM closes the event | winners are paid `$1` per winning share out of the event account, and **whatever remains goes back to the MM** | winners are paid `d` per winning share out of the event account, losers nothing |
 
-> Ex1 kept the commission inside the event account, because there was no user to hand it to. In Ex2 the spec says the MM receives the commissions of his event, so it moves to the MM's account. Write that down in the readme.
+> Ex1 kept the commission inside the event account, because there was no user to hand it to. In Ex2 it moves to the market maker's own account. That is no longer a reading of an ambiguous sentence: the order book simulation supplied with the course does exactly this in its own ledger, in both commission modes, and the engine reproduces its closing balances to the cent. Say so in the readme all the same.
+>
+> Two invariants fall out of it and are kept as checks: an **order book event's account lands on exactly 0** when it closes, because every pair of shares was paid for in full when it was created, and **no money is created or destroyed** - the four traders of the simulation still hold 1100 between them at the end.
 
 An MM whose account cannot cover the opening cost **cannot open the event**: a refusal with a message, not a negative balance.
 
 ### 3.3 Blocked users
 
-An action that would take a user's balance below zero is refused with a message. If a balance ends up negative all the same (a settlement he could not decline), he is told and is **blocked from that moment on**: no orders, no purchases, no opening or closing. There are no top-ups in this exercise. The spec sentence admits two readings, so state this one in the readme.
+An action whose immediate cost is more than the balance is refused. Cash moves when an order **executes**, not when it is placed, so two orders that were each affordable on their own can together drive a balance below zero - which is exactly how the blocked state the specification describes becomes reachable. When it happens the user is told and is **blocked from that moment on**: no orders, no purchases, no opening or closing, and there are no top-ups in this exercise.
+
+Shares work the other way round: they are reserved when an order is placed, so nobody can offer the same shares twice or sell shares they do not hold. Both readings belong in the readme.
 
 ### 3.4 Order Book — the algorithm
 
@@ -111,16 +123,20 @@ Check every step against `testing_files/EX2/order_book_simulation.html`; the ari
 Added to `GuessMarketEngine`, keeping the discipline of Ex1 (records out, model objects stay inside):
 
 ```java
-List<UserSummaryDto> listUsers();
-UserDetailsDto       userDetails(String userName);
-void                 openEvent(String userName, int eventId);   // the MM only
-void                 closeEvent(String userName, int eventId, int winningOptionIndex);
-PurchaseResultDto    buyLmsr(String userName, int eventId, int optionIndex, long quantity);
-OrderResultDto       placeOrder(String userName, int eventId, int optionIndex, Side side, long quantity, double price);
-OrderBookDto         orderBook(int eventId, int optionIndex);
+LoadReportDto         loadFile(String path);
+String                loadedFilePath();
+List<UserSummaryDto>  listUsers();
+UserDetailsDto        userDetails(String userName);
+List<EventSummaryDto> listEvents();
+EventStateDto         eventState(int eventId);
+EventStateDto         openEvent(String userName, int eventId);                        // the market maker only
+CloseResultDto        closeEvent(String userName, int eventId, int winningOptionIndex);
+PurchaseResultDto     buy(String userName, int eventId, int optionIndex, long quantity);
+OrderResultDto        placeOrder(String userName, int eventId, int optionIndex,
+                                 OrderSide side, long quantity, double pricePerShare);
 ```
 
-Every refusal stays an `EngineException` carrying a message meant to be shown to the user as it is.
+`EventStateDto` carries the books of an order book event, its participants and its history together, so a screen reads one object instead of assembling one. Every refusal stays an `EngineException` carrying a message meant to be shown to the user as it is, and the engine still holds no `System.out`, no `Scanner` and no JavaFX import.
 
 ---
 
@@ -179,18 +195,20 @@ One window, one top bar, and two areas switched by a tab — that is what the sk
 
 ## 6. Order of work — three days to 12.9.26
 
-| # | Step | Est. |
-|---|---|---|
-| 1 | JavaFX SDK in place; an empty JFX window built by `build.bat` and started by `run.bat` from a clean folder | 1 h |
-| 2 | Engine: users, market makers, event phases, opening and closing with the money movements; the loader for schema v2 with all its validations | 3 h |
-| 3 | The shell of the window: top bar, load through a `Task` with progress, events area with the filters and the LMSR details reused from Ex1 | 3 h |
-| 4 | Users area: table, details, participation, and LMSR trading driven from a user | 2.5 h |
-| 5 | Order Book in the engine: the book, the matching, the mint, the statistics — checked against the simulation | 4 h |
-| 6 | Order Book on the screen: the two books, the order form, the participants | 3 h |
-| 7 | The course files (`multiple`, `small`, `error-2`, `error-3`), the resize check, a full run through | 2 h |
-| 8 | Readme, jars, extract-and-run rehearsal in a clean folder, zip, push | 1.5 h |
+| # | Step | Est. | State |
+|---|---|---|---|
+| 1 | Engine: users, market makers, event phases, opening and closing with the money movements | 3 h | **done** |
+| 2 | Engine: the order book, its matching, its mint and its statistics | 4 h | **done** |
+| 3 | The loader for the v2 format with all its validations | 1.5 h | **done** |
+| 4 | The checks against appendix A and the order book simulation (`verify.bat`) | 1.5 h | **done** |
+| 5 | JavaFX SDK in place; an empty window built by `build.bat` and started by `run.bat` from a clean folder | 1 h | next |
+| 6 | The shell of the window: top bar, load through a `Task` with a progress bar, the events area with its filters | 3 h | |
+| 7 | Event details: the LMSR block, and the two books side by side with their statistics and participants | 3 h | |
+| 8 | Users area: the table, the details, and trading driven from the chosen user | 3 h | |
+| 9 | The course files end to end through the interface, the resize check, a full run through | 2 h | |
+| 10 | Readme, jars, extract-and-run rehearsal in a clean folder, zip, push | 1.5 h | |
 
-≈ 20 hours. Steps 1 to 7 are the grade. If the time runs out, **drop bonuses, never the validations or the packaging rehearsal** — and a late submission voids every bonus anyway.
+Roughly 13 hours are left, and steps 5 to 9 are the grade. If the time runs out, **drop bonuses, never the validations or the packaging rehearsal** - and a late submission voids every bonus anyway.
 
 ---
 
