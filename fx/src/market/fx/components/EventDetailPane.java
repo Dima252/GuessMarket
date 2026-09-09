@@ -91,6 +91,7 @@ public final class EventDetailPane extends VBox {
     private TableView<OptionStateDto> optionsTable(List<OptionStateDto> options) {
         TableView<OptionStateDto> table = Tables.table("no options");
         Tables.columns(table,
+                Tables.indexColumn(),
                 Tables.column("Option", OptionStateDto::name),
                 Tables.column("Value", option -> Format.value(option.value())),
                 Tables.column("Shares bought", option -> Format.quantity(option.sharesBought())));
@@ -148,6 +149,8 @@ public final class EventDetailPane extends VBox {
             table.getColumns().add(shares);
             table.getColumns().add(paid);
         }
+        table.getColumns().add(Tables.column("Worth now",
+                participant -> Format.money(holdingsValue(state, participant))));
         table.getColumns().add(Tables.column("Commission",
                 participant -> Format.money(participant.commissionPaid())));
         if (state.isClosed()) {
@@ -158,6 +161,24 @@ public final class EventDetailPane extends VBox {
         table.setPrefHeight(160.0);
         table.setMinHeight(80.0);
         return table;
+    }
+
+    /**
+     * What somebody's shares are worth at what the market currently says. An
+     * option nobody is quoting has no value to give, and then this has none
+     * either - a dash rather than a figure that would be made up.
+     */
+    private Double holdingsValue(EventStateDto state, ParticipantDto participant) {
+        double total = 0.0;
+        boolean anyKnown = false;
+        for (int i = 0; i < state.options().size(); i++) {
+            Double value = state.options().get(i).value();
+            if (value != null) {
+                total += value * participant.sharesPerOption().get(i);
+                anyKnown = true;
+            }
+        }
+        return anyKnown ? total : null;
     }
 
     // ------------------------------------------------------------------- bits

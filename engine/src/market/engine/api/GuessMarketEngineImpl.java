@@ -117,6 +117,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     @Override
     public EventStateDto openEvent(String userName, int eventId) throws EngineException {
         User user = findUser(userName);
+        requireNotBlocked(user);
         Event event = findEvent(eventId);
         requireMarketMaker(event, user);
 
@@ -139,6 +140,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     @Override
     public CloseResultDto closeEvent(String userName, int eventId, int winningOptionIndex) throws EngineException {
         User user = findUser(userName);
+        requireNotBlocked(user);
         Event event = findEvent(eventId);
         requireMarketMaker(event, user);
         requireActive(event);
@@ -154,6 +156,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     public PurchaseResultDto buy(String userName, int eventId, int optionIndex, long quantity)
             throws EngineException {
         User user = findUser(userName);
+        requireNotBlocked(user);
         Event event = findEvent(eventId);
         requireActive(event);
         requireExistingOption(event, optionIndex);
@@ -181,6 +184,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
                                      OrderSide side, long quantity, double pricePerShare)
             throws EngineException {
         User user = findUser(userName);
+        requireNotBlocked(user);
         Event event = findEvent(eventId);
         requireActive(event);
         requireExistingOption(event, optionIndex);
@@ -226,7 +230,6 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
         if (userName != null) {
             for (User user : users) {
                 if (user.name().equalsIgnoreCase(userName.trim())) {
-                    requireNotBlocked(user);
                     return user;
                 }
             }
@@ -251,6 +254,10 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
         }
     }
 
+    /**
+     * Blocked users may still be looked at - the screens have to be able to show
+     * that somebody is blocked - but they may not act.
+     */
     private void requireNotBlocked(User user) throws EngineException {
         if (user.isBlocked()) {
             throw new EngineException(String.format(Locale.US,

@@ -4,6 +4,7 @@ import market.engine.api.EngineException;
 import market.engine.api.GuessMarketEngine;
 import market.engine.api.GuessMarketEngineImpl;
 import market.engine.dto.EventStateDto;
+import market.engine.dto.EventSummaryDto;
 import market.engine.dto.LoadReportDto;
 import market.engine.dto.OrderBookDto;
 import market.engine.dto.UserSummaryDto;
@@ -26,6 +27,7 @@ public final class Verify {
         orderBookSimulation("on-purchase", 486.3055, 224.852, 198.5375, 190.305);
         orderBookSimulation("on-close", 486.45, 224.60, 198.55, 190.40);
         mintCanBeSwitchedOff();
+        moneyIsConserved();
         takingPartCountsFromTheFirstOrder();
         blockedUser();
         aFaultyFileChangesNothing();
@@ -153,6 +155,76 @@ public final class Verify {
                         + balance(engine, "Bob") + balance(engine, "Carol"), 1100.00);
     }
 
+    /**
+     * A whole file lived through: every event opened by its market maker, traded
+     * in by everybody, and closed. Whatever happened in between, the system
+     * cannot have created or destroyed a cent, and no event may keep anything.
+     * <p>
+     * This is the check that would catch a mistake in any of the money paths at
+     * once, without having to guess which one.
+     */
+    private static void moneyIsConserved() throws Exception {
+        section("A file lived through from start to finish");
+        GuessMarketEngine engine = load(COURSE + "multiple.xml");
+
+        double before = totalMoney(engine);
+        near("the file starts with", before, 11100.00);
+
+        // Every market maker opens what is theirs.
+        engine.openEvent("Tikva", 1);
+        engine.openEvent("Avrum", 2);
+        engine.openEvent("Tikva", 3);
+        engine.openEvent("Tikva", 4);
+        near("opening moved money about but created none", totalMoney(engine), before);
+
+        // LMSR: two people buy into the same event.
+        engine.buy("Menash", 1, 0, 10);
+        engine.buy("Avrum", 1, 1, 25);
+        near("nor did buying against the event", totalMoney(engine), before);
+
+        // Order book: the market maker offers, somebody takes, and a mint happens
+        // between two buyers of opposite options.
+        engine.placeOrder("Avrum", 2, 0, OrderSide.SELL, 40, 0.60);
+        engine.placeOrder("Menash", 2, 0, OrderSide.BUY, 20, 0.60);
+        engine.placeOrder("Tikva", 2, 1, OrderSide.BUY, 30, 0.45);
+        engine.placeOrder("Menash", 2, 0, OrderSide.BUY, 10, 0.60);
+        near("nor trading between users, nor minting", totalMoney(engine), before);
+
+        // The other order book, where minting is switched off.
+        engine.placeOrder("Tikva", 3, 0, OrderSide.SELL, 100, 0.55);
+        engine.placeOrder("Avrum", 3, 0, OrderSide.BUY, 60, 0.55);
+        near("nor an event that forbids minting", totalMoney(engine), before);
+
+        // And everything is decided.
+        engine.closeEvent("Tikva", 1, 0);
+        engine.closeEvent("Avrum", 2, 0);
+        engine.closeEvent("Tikva", 3, 1);
+        engine.closeEvent("Tikva", 4, 0);
+
+        near("after everything closed, the same money is still there", totalMoney(engine), before);
+        for (int eventId = 1; eventId <= 4; eventId++) {
+            near("event " + eventId + " kept nothing", engine.eventState(eventId).accountBalance(), 0.00);
+        }
+        near("and it is all in the accounts of the three users", totalUserMoney(engine), before);
+    }
+
+    /** Everything the system holds: what the users have, and what the events do. */
+    private static double totalMoney(GuessMarketEngine engine) throws EngineException {
+        double total = totalUserMoney(engine);
+        for (EventSummaryDto event : engine.listEvents()) {
+            total += engine.eventState(event.id()).accountBalance();
+        }
+        return total;
+    }
+
+    private static double totalUserMoney(GuessMarketEngine engine) throws EngineException {
+        double total = 0.0;
+        for (UserSummaryDto user : engine.listUsers()) {
+            total += user.balance();
+        }
+        return total;
+    }
+
     private static void mintCanBeSwitchedOff() throws Exception {
         section("An event that does not allow minting");
         GuessMarketEngine engine = load(DIR + "order-book-no-mint.xml");
@@ -207,6 +279,12 @@ public final class Verify {
             }
         }
         equal("the list of users shows her as blocked", flagged, true);
+
+        // A blocked user can still be looked at: a screen has to be able to show
+        // that somebody is blocked, and what they were left holding.
+        var details = engine.userDetails("Carol");
+        equal("her details can still be read", details.blocked(), true);
+        equal("with the event she is stuck in", (long) details.events().size(), 1L);
     }
 
     private static void aFaultyFileChangesNothing() throws Exception {
@@ -226,6 +304,19 @@ public final class Verify {
         LoadReportDto missing = engine.loadFile(COURSE + "does-not-exist.xml");
         equal("so does a file that is not there at all", missing.success(), false);
         equal("the events survive that too", (long) engine.listEvents().size(), 4L);
+
+        // A good file, on the other hand, replaces everything that was there.
+        LoadReportDto second = engine.loadFile(COURSE + "small.xml");
+        equal("a second good file is accepted", second.success(), true);
+        equal("and it replaced the first", (long) engine.listEvents().size(), 2L);
+        equal("with its own users", (long) engine.listUsers().size(), 3L);
+        near("and nothing of the old trading came with it",
+                engine.eventState(1).accountBalance(), 0.00);
+
+        // The path a file chooser hands over can have spaces anywhere in it.
+        LoadReportDto spaced = engine.loadFile(DIR + "folder with spaces/events file.xml");
+        equal("a path with spaces loads", spaced.success(), true);
+        equal("with the events it holds", (long) spaced.eventsLoaded(), 2L);
     }
 
     // ----------------------------------------------------------------- guards

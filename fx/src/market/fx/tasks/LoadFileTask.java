@@ -42,7 +42,9 @@ public final class LoadFileTask extends Task<LoadReportDto> {
         if (report.success()) {
             step(3, "Loaded " + report.eventsLoaded() + " events and " + report.usersLoaded() + " users");
         } else {
-            step(3, "The file was refused: " + report.errors().size() + " problems found");
+            int problems = report.errors().size();
+            step(3, "The file was refused: " + problems
+                    + (problems == 1 ? " problem found" : " problems found"));
         }
         return report;
     }

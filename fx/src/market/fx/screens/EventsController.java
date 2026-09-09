@@ -44,6 +44,7 @@ public final class EventsController {
     @FXML
     private void initialize() {
         Tables.columns(eventsTable,
+                Tables.indexColumn(),
                 Tables.column("Event", EventSummaryDto::name),
                 Tables.column("Method", EventSummaryDto::methodType),
                 Tables.column("Status", EventSummaryDto::phase),

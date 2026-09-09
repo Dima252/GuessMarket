@@ -4,9 +4,11 @@
 is not, how to check that nothing has rotted, and the handful of decisions that
 would otherwise have to be made twice.
 
-Due **12.9.26**. The engine is finished; roughly **7 hours of interface work**
-remain. The plan behind all of it is [EX2_PLAN.md](./EX2_PLAN.md); the exercise
-itself is [Guess Market - v3.pdf](./Guess%20Market%20-%20v3.pdf).
+Due **12.9.26**. **Every requirement of the exercise is now implemented** -
+section 2a checks them off one by one against the specification. What is left is
+delivering it: a run through by hand, the readme, the zip, and the merge. The
+plan behind all of it is [EX2_PLAN.md](./EX2_PLAN.md); the exercise itself is
+[Guess Market - v3.pdf](./Guess%20Market%20-%20v3.pdf).
 
 ---
 
@@ -23,10 +25,12 @@ All of it passed on the last run, from a clean `build` and `dist`:
 
 | Check | Result |
 |---|---|
-| `verify.bat` | 125 of 125 |
-| `verify-ui.bat` | the loading task, and 18 checks on the events screen |
-| `dist` copied to an empty folder and started there | window up, **stderr completely clean** |
+| `verify.bat` | 144 of 144, and the same under a comma-decimal locale |
+| `verify-ui.bat` | every course file through the loading task, 18 on the events screen, 28 on the users screen |
+| Zipped, extracted into a folder whose path has a space, started from `C:\` | window up, **stderr completely clean** |
 | Size of what would be zipped | 11.5 MB as a folder, 8.4 MB zipped |
+| `-Xlint:all` on both modules | no warnings |
+| The engine's independence | no `System.out`, no `Scanner`, no JavaFX, no knowledge of its caller |
 
 If a change breaks something, those three scripts say so in about a minute.
 
@@ -52,55 +56,64 @@ changes nothing that was already loaded.
 and account balance; three filter rows of toggle buttons; and the details of
 whichever event is chosen — for LMSR the block of command 3 of exercise 1, for an
 order book the two books side by side with LAST, BID, ASK, MID and SPREAD. Both
-end with who is taking part, and with the winning option once the event is
-closed.
+end with who is taking part, how much they hold and what it is worth, and with
+the winning option once the event is closed.
+
+**The users tab.** Everybody with their balance and standing; for whoever is
+chosen, every event with what they are to it; their own part in the chosen event
+- their own trades for LMSR, what they hold and what it cost for an order book,
+the commission they paid, and their result once it is over; and underneath, the
+things they can actually do: opening, buying, ordering, closing. A refusal comes
+back in the engine's own words. A blocked user is shown as blocked and offered
+nothing.
+
+---
+
+## 2a. Against the specification, line by line
+
+| The exercise asks for | Where it is |
+|---|---|
+| Order book events, users and accounts, a JFX interface following the sketch | the two tabs, `fx/src/market/fx` |
+| A file chosen **only** through a file chooser | `MainController.onLoadFile` |
+| Only the exercise 2 format; a good file replaces the last one | the loader; checked |
+| Any legal directory, including one with spaces | checked, with a path that has spaces in the folder and in the file |
+| Loading through a `Task`, with a progress bar and a deliberate delay | `LoadFileTask`, four steps, about 1.8 seconds |
+| The validations of exercise 1, plus unique user names, initial cash above zero, market makers pointing at events that exist, exactly one market maker per event | the loader; the course's own `error-2` and `error-3` are refused for exactly these |
+| A faulty file is not loaded, and says in detail why | a scrolling dialog listing every problem at once |
+| Users: name, balance, the events they take part in | the users table and the events beside it |
+| Their part in an event: for LMSR their own trades and the commission they paid; for an order book what they hold of each option, what it cost, and their result once closed | `UserInvolvementPane` |
+| A user may not go below zero; when it happens they are told and blocked; no topping up | `User.pay` blocks; the screen shows it; there is no way to add money |
+| Market makers open, fund, close and collect the commissions | `TradeForm`, and the engine refuses everybody else |
+| Every event, whatever its stage, filtered by method, status and commission method, each with an "all" | the three toggle rows |
+| Per event: name, status, type, commission method and amount, account balance | the events table and the detail heading |
+| LMSR detail: the content of command 3 of exercise 1 | option values, shares, account, commission, history newest first, winner |
+| Order book detail: each option's book with user, quantity and price per share, plus LAST, BID, ASK, MID, SPREAD | `OrderBookPane` |
+| Participants: anybody holding shares **or** with an order waiting, with quantity and value | the participants table; taking part counts from the first order |
+| Three phases, and only the market maker opens and closes | `EventPhase`, and the screen offers nothing it may not do |
+| Opening costs the subsidy or the first pairs, and is refused without the money | checked in both the engine and the screen |
+| An order names a side, a quantity and a price no higher than `d − 0.01`; then it matches, mints or waits | the engine, checked against the course's own simulation |
+| Closing empties the account to the winners, hands the closing commission to the market maker, and returns what is left | checked |
+| Resizing, with scroll panes, and **not** by making the window fixed | both sides scroll; the window is resizable and was laid out at 640×420 |
+| English only, at most two decimals, every list numbered from 1 | `Format`, and a `#` column on every list |
+| Java 25 | compiled and run with it |
+
+What is **not** done is only the delivery: the readme, the zip, and the merge.
 
 ---
 
 ## 3. What is left
 
-Nothing in `fx/` calls `listUsers`, `userDetails`, `buy`, `placeOrder`,
-`openEvent` or `closeEvent` yet. **The whole acting half of the application is
-what remains.**
+Everything the exercise asks for is implemented and checked. What remains is
+handing it in.
 
-### 3.1 The users tab — about 2 hours
-
-`users-view.fxml` and `UsersController`, included in the Users tab of
-`main-view.fxml` the same way the events view already is.
-
-- the table of users: name, balance, whether they are a market maker, whether they are blocked
-- the chosen user: balance, and the events they take part in or own
-- per event: for LMSR their own trade history and the commission they paid; for an order book their holdings and money spent per option, their commission, and their profit or loss once the event is closed
-
-`AppState` already carries `selectedUserName` and `selectUser` for this, and
-already broadcasts `refresh()` to every screen that asked for it.
-
-### 3.2 Acting as the chosen user — about 2.5 hours
-
-This is where the specification puts participation: from the users area, after a
-user and an event have been chosen.
-
-- a `TradeForm` under the reused `EventDetailPane` — pass it the acting user and it grows the controls; pass it nothing and it stays the read-only pane the events tab uses
-- LMSR: an option and a quantity, then `buy`
-- Order book: a side, an option, a quantity and a price, then `placeOrder`, showing what executed and what is left waiting
-- Open and Close, shown only when the chosen user is the market maker of the event in front of them; closing asks which option won
-- every `EngineException` shown as it is - the engine writes them to be read by a person
-- a blocked user shown as blocked, with the controls disabled
-
-### 3.3 Polish — about 1 hour
-
-- resize: check at 640×420, which is the smallest the window allows. The events side has its `ScrollPane`; the users side will need its own
-- a `#` column numbering lists from 1, which the specification asks for and costs nothing
-- the participants table shows what was **paid**; the specification also asks for the **value** of the holdings, so one more column — shares × mid, or × last
-
-### 3.4 Delivering it — about 1.5 hours
+### 3.1 Delivering it — about 1.5 hours
 
 - a run through the interface with `small.xml`, `multiple.xml`, `error-2.xml` and `error-3.xml`
 - **the readme, in Word or PDF** - a plain text file loses points. Submitter details, how to run it, what the main classes do, the assumptions in section 5 below, the GitHub link, and any bonus named at the very top
 - the zip: two jars, the `javafx` folder, `run.bat`, the readme - then extract it somewhere empty and run it
 - **merge `docs/spec-v3-ex2` into `main` and push**, because the readme carries a GitHub link and the code has to be there
 
-### 3.5 Bonuses — only if all of the above is done
+### 3.2 Bonuses — only if all of the above is done
 
 Charts (+8) stay the cheapest, because every trade and every movement of money is
 already recorded. Skins (+5) and animations (+5) have to ship switched off.
@@ -114,6 +127,8 @@ submission voids all of them.
 - **`getValue()` and `getProgress()` on a `Task` may only be touched on the JavaFX thread.** That is why the report is read inside `setOnSucceeded`. Slide 86 of the course deck is right about this and it is easy to forget.
 - **`SplitPane.lookup()` finds nothing without a stage**, because the skin that adds its items as children has not been built. The screen checks walk `getItems()` instead.
 - **Every filter row has an "All" button**, so anything that finds a button by its label has to say which row as well.
+- **A `ScrollPane` has no children without a stage either**, for the same reason as the `SplitPane`: its content is reached through `getContent()`.
+- **Anything a screen reports is wiped by the refresh that follows the action**, unless the label carrying it is re-added in every branch. Closing an event lost the sentence saying it had closed, until the report was moved out of the branches.
 - **`jfxwebkit.dll` is 92 MB of the JavaFX SDK's 107.** `build.bat` copies only the four modules the application loads and drops the web and media natives. Do not "simplify" that back into copying the whole SDK.
 - **`--enable-native-access=javafx.graphics`** in `run.bat` is what stops Java 25 printing four warnings about JavaFX's natives every launch.
 - **The published `GM-EX2-Schema.xsd` is the authority, not the appendix**, which misspells `commission`, `GM-market-maker` and `initial`. The loader accepts both spellings.
@@ -139,8 +154,11 @@ and the choice is already made in code.
 
 ## 6. The repository as it stands
 
-Everything is on the branch **`docs/spec-v3-ex2`**; `main` is still at the
-exercise 1 submission, six commits behind:
+Work happens on the branch **`docs/spec-v3-ex2`**. `main` has everything up to
+the handover commit, merged through pull request #1; the three commits that
+carry the users area, the conformance fixes and the sanity pass are **not on
+`main` and not pushed yet**, so the GitHub link in the readme will not show them
+until they are:
 
 | | |
 |---|---|

@@ -21,7 +21,7 @@ mkdir build\verify-ui
 set CP=dist\guess-market-engine.jar;dist\guess-market-fx.jar;build\verify-ui
 
 javac -encoding UTF-8 --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls,javafx.fxml ^
-      -cp "%CP%" -d build\verify-ui verification\LoadTaskCheck.java verification\EventsScreenCheck.java
+      -cp "%CP%" -d build\verify-ui verification\LoadTaskCheck.java verification\EventsScreenCheck.java verification\UsersScreenCheck.java
 if errorlevel 1 goto failed
 
 echo.
@@ -34,6 +34,12 @@ echo.
 echo === The events screen ===
 java --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls,javafx.fxml ^
      --enable-native-access=javafx.graphics -cp "%CP%" EventsScreenCheck
+if errorlevel 1 goto broken
+
+echo.
+echo === The users screen ===
+java --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls,javafx.fxml ^
+     --enable-native-access=javafx.graphics -cp "%CP%" UsersScreenCheck
 if errorlevel 1 goto broken
 
 echo.

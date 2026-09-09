@@ -43,7 +43,7 @@
                 </Tab>
                 <Tab fx:id="usersTab" text="Users">
                     <content>
-                        <Label fx:id="usersPlaceholder" text="Load a file to see the users."/>
+                        <fx:include fx:id="usersView" source="users-view.fxml"/>
                     </content>
                 </Tab>
             </tabs>

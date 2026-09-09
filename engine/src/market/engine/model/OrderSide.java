@@ -18,6 +18,12 @@ public enum OrderSide {
         return displayName;
     }
 
+    /** What a list of sides shows, rather than the name of the constant. */
+    @Override
+    public String toString() {
+        return displayName;
+    }
+
     /** Reads a side written by the user, ignoring case. */
     public static Optional<OrderSide> parse(String value) {
         String normalized = value == null ? "" : value.trim();

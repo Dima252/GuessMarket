@@ -172,16 +172,18 @@ public final class XmlEventsLoader {
         Map<Integer, List<String>> marketMakersByEvent = new LinkedHashMap<>();
 
         for (int position = 0; position < userElements.size(); position++) {
-            new UserReader(userElements.get(position), position + 1, namesSeen, errors)
-                    .read()
-                    .ifPresent(read -> {
-                        users.add(read.user());
-                        for (int eventId : read.marketMakerOf()) {
-                            marketMakersByEvent
-                                    .computeIfAbsent(eventId, key -> new ArrayList<>())
-                                    .add(read.user().name());
-                        }
-                    });
+            ReadUser read = new UserReader(userElements.get(position), position + 1, namesSeen, errors).read();
+            if (read.user() != null) {
+                users.add(read.user());
+            }
+            // The claims are registered even when the user was refused. Otherwise
+            // refusing one user would make every event they carry look as though
+            // the file had left it without a market maker, which it had not.
+            for (int eventId : read.marketMakerOf()) {
+                marketMakersByEvent
+                        .computeIfAbsent(eventId, key -> new ArrayList<>())
+                        .add(read.name());
+            }
         }
 
         checkMarketMakers(eventsById, marketMakersByEvent, users, errors);
@@ -474,7 +476,7 @@ public final class XmlEventsLoader {
             this.name = element.getAttribute("name").trim();
         }
 
-        private Optional<ReadUser> read() {
+        private ReadUser read() {
             int errorsBefore = errors.size();
 
             if (name.isEmpty()) {
@@ -489,10 +491,8 @@ public final class XmlEventsLoader {
             Integer cash = readInitialCash();
             List<Integer> marketMakerOf = readMarketMakerEvents();
 
-            if (errors.size() != errorsBefore || cash == null) {
-                return Optional.empty();
-            }
-            return Optional.of(new ReadUser(new User(name, cash), marketMakerOf));
+            boolean sound = errors.size() == errorsBefore && cash != null;
+            return new ReadUser(sound ? new User(name, cash) : null, name, marketMakerOf);
         }
 
         private Integer readInitialCash() {
@@ -543,8 +543,12 @@ public final class XmlEventsLoader {
         }
     }
 
-    /** A user together with the ids of the events they were declared the market maker of. */
-    private record ReadUser(User user, List<Integer> marketMakerOf) {
+    /**
+     * A user as the file described them: the user themselves when the description
+     * was sound, the name it gave whether or not it was, and the events it says
+     * they carry.
+     */
+    private record ReadUser(User user, String name, List<Integer> marketMakerOf) {
     }
 
     private static Integer parseInteger(String text) {
