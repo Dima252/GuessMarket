@@ -25,7 +25,7 @@ All of it passed on the last run, from a clean `build` and `dist`:
 
 | Check | Result |
 |---|---|
-| `verify.bat` | 144 of 144, and the same under a comma-decimal locale |
+| `verify.bat` | 166 of 166, and the same under a comma-decimal locale |
 | `verify-ui.bat` | every course file through the loading task, 18 on the events screen, 28 on the users screen |
 | Zipped, extracted into a folder whose path has a space, started from `C:\` | window up, **stderr completely clean** |
 | Size of what would be zipped | 11.5 MB as a folder, 8.4 MB zipped |

@@ -28,6 +28,8 @@ public final class Verify {
         orderBookSimulation("on-close", 486.45, 224.60, 198.55, 190.40);
         mintCanBeSwitchedOff();
         moneyIsConserved();
+        aBaseValueOtherThanOne();
+        theEdgesTheRulesAllow();
         takingPartCountsFromTheFirstOrder();
         blockedUser();
         aFaultyFileChangesNothing();
@@ -225,6 +227,78 @@ public final class Verify {
         return total;
     }
 
+    /**
+     * Everything about an order book has so far been checked with a base value of
+     * one dollar, where `d` and the number 1 look the same. Here it is five, so a
+     * price ceiling, a mint or a payout that quietly used 1 would show.
+     * <p>
+     * Worked out by hand: opening buys 100 / 5 = 20 pairs for 100. Bob's bid of
+     * 2.50 rests, Alice bids 3.00 on the other option, 2.50 + 3.00 is over the
+     * five a pair is worth, so ten pairs are minted - Bob at the 2.50 he asked
+     * for, Alice at the 2.50 that completes the five. Yes then wins, and the
+     * thirty Yes shares in existence are paid five each, which is exactly the
+     * hundred and fifty in the pot.
+     */
+    private static void aBaseValueOtherThanOne() throws Exception {
+        section("An order book where a pair is worth five, not one");
+        GuessMarketEngine engine = load(DIR + "base-value-five.xml");
+        int yes = 0;
+        int no = 1;
+
+        engine.openEvent("Zoe", 1);
+        near("opening bought 20 pairs for the hundred", balance(engine, "Zoe"), 400.00);
+        equal("and that is 20 shares of each", engine.eventState(1).options().get(yes).sharesBought(), 20L);
+        near("all of which sits in the event", engine.eventState(1).accountBalance(), 100.00);
+
+        refused("a price of five is the whole pair, so it is refused",
+                () -> engine.placeOrder("Alice", 1, yes, OrderSide.BUY, 1, 5.00));
+        refused("and so is anything above it",
+                () -> engine.placeOrder("Alice", 1, yes, OrderSide.BUY, 1, 7.50));
+
+        engine.placeOrder("Bob", 1, no, OrderSide.BUY, 10, 2.50);
+        var minted = engine.placeOrder("Alice", 1, yes, OrderSide.BUY, 10, 3.00);
+        equal("the two of them mint ten pairs", (long) minted.executed().size(), 2L);
+        near("Bob paid the 2.50 he asked for", balance(engine, "Bob"), 200.00 - 25.00);
+        near("and Alice the 2.50 that completes the five", balance(engine, "Alice"), 200.00 - 25.00);
+        near("so the pot grew by five a pair", engine.eventState(1).accountBalance(), 150.00);
+        equal("and thirty Yes shares now exist", engine.eventState(1).options().get(yes).sharesBought(), 30L);
+
+        engine.closeEvent("Zoe", 1, yes);
+        near("every winning share paid five", balance(engine, "Alice"), 175.00 + 50.00);
+        near("the market maker included", balance(engine, "Zoe"), 400.00 + 100.00);
+        near("the loser got nothing", balance(engine, "Bob"), 175.00);
+        near("and the pot is empty", engine.eventState(1).accountBalance(), 0.00);
+        near("with the money all still there", totalMoney(engine), 900.00);
+    }
+
+    /** The values the specification allows at the very edge of what it allows. */
+    private static void theEdgesTheRulesAllow() throws Exception {
+        section("The edges of what the rules permit");
+        GuessMarketEngine engine = load(DIR + "edge-values.xml");
+        equal("a file with no commission, the largest commission, and nothing to "
+                + "open with, is accepted", (long) engine.listEvents().size(), 3L);
+
+        engine.openEvent("Owner", 1);
+        engine.buy("Trader", 1, 0, 10);
+        near("no commission means none is taken", engine.eventState(1).commissionCollected(), 0.00);
+
+        engine.openEvent("Owner", 2);
+        engine.buy("Trader", 2, 0, 10);
+        engine.closeEvent("Owner", 2, 0);
+        near("ninety percent of a payout of ten is nine",
+                engine.eventState(2).commissionCollected(), 9.00);
+
+        // An initial investment of zero: the market maker opens the event without
+        // buying anything, which the specification explicitly allows.
+        double before = balance(engine, "Owner");
+        engine.openEvent("Owner", 3);
+        near("opening for nothing costs nothing", balance(engine, "Owner"), before);
+        equal("and no shares were made", engine.eventState(3).options().get(0).sharesBought(), 0L);
+
+        rejected(DIR + "bad-three-options.xml", "but every event must have exactly 2");
+        rejected(DIR + "bad-allow-mint.xml", "only true or false are allowed");
+    }
+
     private static void mintCanBeSwitchedOff() throws Exception {
         section("An event that does not allow minting");
         GuessMarketEngine engine = load(DIR + "order-book-no-mint.xml");
@@ -358,8 +432,8 @@ public final class Verify {
         rejected(COURSE + "error-2.xml", "must start with more than 0");
         rejected(COURSE + "error-3.xml", "no event with that id");
         rejected(COURSE + "error-3.xml", "has no market maker");
-        rejected("testing_files/single.xml", "exercise 2 format");
-        rejected("testing_files/multiple.xml", "exercise 2 format");
+        rejected("testing_files/EX1/single.xml", "exercise 2 format");
+        rejected("testing_files/EX1/multiple.xml", "exercise 2 format");
     }
 
     private static void ownFaultyFiles() {

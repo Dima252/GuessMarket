@@ -1,7 +1,7 @@
 # Guess Market — Exercise 2 Execution Plan (JavaFX)
 
 Spec: [Guess Market - v3.pdf](./Guess%20Market%20-%20v3.pdf) — pages 20–25 (Ex2), 34–36 (Appendix B: Order Book), 38 (Appendix C: schema v2), 41 (Appendix D: schema v2 diagram).
-Layout sketch: [EX2-sketch.pptx](./EX2-sketch.pptx). Course check files: [testing_files/EX2/](../testing_files/EX2/).
+Layout sketch: [EX2_SKETCH.pptx](./EX2_SKETCH.pptx). Course check files: [testing_files/EX2/](../testing_files/EX2/).
 Weight 40%, max grade 110, due **12.9.26**. Same grading setup as Ex1: a clean Windows 10 box, no IDE, a `.bat` that starts the program.
 
 ---
