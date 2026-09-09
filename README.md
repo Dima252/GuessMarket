@@ -15,6 +15,80 @@ book, where users trade with each other and new shares are minted when two buyer
 together cover the base value of a pair. What is left is the JavaFX application in
 front of it — see `docs/EX2_PLAN.md`.
 
+## Remains to be done (Shalev)
+
+The code is finished. Every requirement of exercise 2 is implemented, and the
+checks all pass — 144 on the engine, 46 driving the screens. Three things are
+left, and none of them is code.
+
+**Start here.** Open a terminal in this folder and run:
+
+```
+build.bat
+dist\run.bat
+```
+
+`build.bat` needs the JavaFX 25 SDK. It looks at `JAVAFX_HOME` and falls back to
+`C:\Users\dimat\javafx-sdk-25.0.4`; if it is somewhere else on your machine, set
+that variable first. If the SDK is missing the build stops and says so.
+
+### 1. Look at it with your own eyes — 15 minutes
+
+Everything below has been driven automatically, but nobody has *seen* it. The
+checks can press a button and read a label back; they cannot tell whether two
+columns overlap. Please run through this and note anything that looks wrong:
+
+1. **Load a file.** `Load file...` → `testing_files\EX2\multiple.xml`. The progress
+   bar should move for about two seconds and the path should appear at the top.
+2. **Events tab.** Try each of the three filter rows — method, status, commission.
+   Click an LMSR event (*Mujtaba is Dead*) and an order book one (*World Cap
+   Winner*): the order book shows two books side by side. **Do they fit? Does
+   anything overlap or get cut off?**
+3. **Users tab.** Choose *Tikva*, choose *Mujtaba is Dead*, press **Open the
+   event** — her balance should drop by 69.31. Then choose *Menash*, the same
+   event, type 10 shares and press **Buy**. Check the numbers read sensibly and
+   that his own trade appears under "What Menash has in this event".
+4. **Make the window small.** Drag it down to roughly 640 by 420, which is the
+   smallest it allows. Everything should still be reachable by scrolling. This is
+   tested at the grader, and it is the part I am least able to check for you.
+5. **Load a bad file.** `testing_files\EX2\error-2.xml` should be refused with
+   **exactly one** problem — the user starting with 0 in the account — and
+   whatever was loaded before should still be there afterwards.
+
+### 2. Write the readme — 45 minutes
+
+This is the biggest remaining piece.
+
+- **It must be Word or PDF.** A plain `.txt` readme loses marks by itself.
+- It has to contain: your name, ID and an email that is actually read; the same
+  for me; how to run the program; a short description of what the main classes
+  do; **a link to this repository on GitHub**; and the assumptions taken.
+- **The assumptions are already written out** in [docs/STATUS.md](docs/STATUS.md),
+  section 5 — nine of them, each a place where the exercise allows more than one
+  reading and we had to choose. Copy them across.
+- Section 2a of the same file maps every requirement of the exercise to where it
+  is answered, if you want to check nothing was missed.
+- No bonus was implemented, so nothing goes at the top of the readme.
+
+### 3. Make the zip — 10 minutes
+
+1. Run `build.bat` once more so `dist` is fresh.
+2. Zip **the contents of `dist`** — `guess-market-engine.jar`,
+   `guess-market-fx.jar`, the `javafx` folder and `run.bat` — plus the readme.
+   About 8.4 MB.
+3. **Rehearse it**: extract the zip into an empty folder somewhere else and run
+   `run.bat` from there. The window has to come up with nothing printed in red.
+   This exact rehearsal has been done from a folder whose path contains a space
+   and from a different working directory, so it should just work — but do it
+   once yourself, because a submission the grader cannot start is a level 0, and
+   a level 0 resubmission starts from 90 whatever the fix turns out to be.
+
+Do not rebuild the `javafx` folder by hand. `build.bat` copies exactly the four
+modules the program loads and leaves out the web and media ones, which is the
+difference between a zip of 8 MB and one of 60.
+
+---
+
 ## Requirements
 
 **JDK 25**, and nothing else. The project has no dependencies and needs no build

@@ -154,8 +154,11 @@ and the choice is already made in code.
 
 ## 6. The repository as it stands
 
-Everything is on the branch **`docs/spec-v3-ex2`**; `main` is still at the
-exercise 1 submission, six commits behind:
+Work happens on the branch **`docs/spec-v3-ex2`**. `main` has everything up to
+the handover commit, merged through pull request #1; the three commits that
+carry the users area, the conformance fixes and the sanity pass are **not on
+`main` and not pushed yet**, so the GitHub link in the readme will not show them
+until they are:
 
 | | |
 |---|---|
