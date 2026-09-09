@@ -105,6 +105,9 @@ public final class UsersScreenCheck {
         press("Buy");
         says("the purchase is reported", "Bought 10");
         near("and he paid what LMSR charged", balanceOf("Menash"), 100.00 - 5.38);
+        says("his own trades are on his own screen", "Their own trades");
+        says("with what he holds", "What they hold");
+        says("and the commission he paid", "Commission paid");
 
         System.out.println();
         System.out.println("== what he is not offered, and what he is refused");
@@ -145,6 +148,8 @@ public final class UsersScreenCheck {
         // This event charges on close, so nothing is added on top of the twelve.
         near("twelve dollars left his account", balanceOf("Menash"), 100.00 - 5.38 - 12.00);
 
+        says("his order book holdings are on his screen too", "What they hold");
+
         System.out.println();
         System.out.println("== a price the exchange will not take");
         type("how many", "5");
@@ -159,6 +164,26 @@ public final class UsersScreenCheck {
         press("Close on this option");
         equal("the event is closed", statusOf("World Cap Winner"), "Closed");
         says("and it says so", "closed on");
+
+        System.out.println();
+        System.out.println("== squeezed to the smallest the window allows");
+        root.getScene().getWindow();
+        resizeTo(640, 420);
+        equal("the users table still has room", usersTable().getWidth() > 0, true);
+        equal("so does the events table", eventsTable().getWidth() > 0, true);
+        equal("and the tables are numbered from 1", firstColumnOf(usersTable()), "#");
+        equal("as is the list of their events", firstColumnOf(eventsTable()), "#");
+    }
+
+    /** Lays the screen out at a given size, the way a resized window would. */
+    private static void resizeTo(double width, double height) {
+        root.resize(width, height);
+        root.applyCss();
+        root.layout();
+    }
+
+    private static String firstColumnOf(TableView<?> table) {
+        return table.getColumns().isEmpty() ? "none" : table.getColumns().get(0).getText();
     }
 
     // ------------------------------------------------------- driving the screen

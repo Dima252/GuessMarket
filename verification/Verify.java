@@ -232,6 +232,19 @@ public final class Verify {
         LoadReportDto missing = engine.loadFile(COURSE + "does-not-exist.xml");
         equal("so does a file that is not there at all", missing.success(), false);
         equal("the events survive that too", (long) engine.listEvents().size(), 4L);
+
+        // A good file, on the other hand, replaces everything that was there.
+        LoadReportDto second = engine.loadFile(COURSE + "small.xml");
+        equal("a second good file is accepted", second.success(), true);
+        equal("and it replaced the first", (long) engine.listEvents().size(), 2L);
+        equal("with its own users", (long) engine.listUsers().size(), 3L);
+        near("and nothing of the old trading came with it",
+                engine.eventState(1).accountBalance(), 0.00);
+
+        // The path a file chooser hands over can have spaces anywhere in it.
+        LoadReportDto spaced = engine.loadFile(DIR + "folder with spaces/events file.xml");
+        equal("a path with spaces loads", spaced.success(), true);
+        equal("with the events it holds", (long) spaced.eventsLoaded(), 2L);
     }
 
     // ----------------------------------------------------------------- guards

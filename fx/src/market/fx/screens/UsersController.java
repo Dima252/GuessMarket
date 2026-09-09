@@ -20,6 +20,7 @@ import market.engine.dto.UserSummaryDto;
 import market.fx.AppState;
 import market.fx.components.EventDetailPane;
 import market.fx.components.TradeForm;
+import market.fx.components.UserInvolvementPane;
 import market.fx.components.Tables;
 import market.fx.util.Format;
 
@@ -42,6 +43,7 @@ public final class UsersController {
     private final ObservableList<UserSummaryDto> users = FXCollections.observableArrayList();
     private final ObservableList<EventRow> userEvents = FXCollections.observableArrayList();
     private final EventDetailPane eventDetail = new EventDetailPane();
+    private final UserInvolvementPane involvement = new UserInvolvementPane();
     private TradeForm tradeForm;
 
     private AppState state;
@@ -85,6 +87,7 @@ public final class UsersController {
     @FXML
     private void initialize() {
         Tables.columns(usersTable,
+                Tables.indexColumn(),
                 Tables.column("User", UserSummaryDto::name),
                 Tables.column("Balance", user -> Format.money(user.balance())),
                 Tables.column("Market maker", user -> user.marketMaker() ? "yes" : ""),
@@ -93,6 +96,7 @@ public final class UsersController {
         usersTable.setPlaceholder(new Label("No users are loaded."));
 
         Tables.columns(userEventsTable,
+                Tables.indexColumn(),
                 Tables.column("Event", row -> row.event().name()),
                 Tables.column("Method", row -> row.event().methodType()),
                 Tables.column("Status", row -> row.event().phase()),
@@ -112,7 +116,9 @@ public final class UsersController {
     public void setState(AppState state) {
         this.state = state;
         this.tradeForm = new TradeForm(state);
-        userDetail.getChildren().addAll(eventDetail, tradeForm);
+        // The event as everybody sees it, then this user's own part in it, then
+        // what they can do about it.
+        userDetail.getChildren().addAll(eventDetail, involvement, tradeForm);
         eventDetail.showNothing("Choose one of the events above to see it and to act in it.");
         state.onRefresh(this::refresh);
     }
@@ -125,6 +131,7 @@ public final class UsersController {
             userHeading.setText("Load a file to see the users.");
             userBalance.setText("");
             eventDetail.showNothing("");
+            involvement.showNothing();
             tradeForm.showNothing();
             return;
         }
@@ -151,6 +158,7 @@ public final class UsersController {
         userBalance.setText("");
         userEvents.clear();
         eventDetail.showNothing("");
+        involvement.showNothing();
         tradeForm.showNothing();
     }
 
@@ -212,6 +220,7 @@ public final class UsersController {
             }
         }
         eventDetail.showNothing("Choose one of the events above to see it and to act in it.");
+        involvement.showNothing();
         tradeForm.showNothing();
     }
 
@@ -224,14 +233,27 @@ public final class UsersController {
     }
 
     private void showEvent(int eventId, boolean blocked) {
+        String userName = state.selectedUserName();
         try {
             var event = state.engine().eventState(eventId);
             eventDetail.show(event);
-            tradeForm.show(state.selectedUserName(), event, blocked);
+            involvement.show(userName, involvementIn(eventId), event);
+            tradeForm.show(userName, event, blocked);
         } catch (EngineException e) {
             eventDetail.showNothing(e.getMessage());
+            involvement.showNothing();
             tradeForm.showNothing();
         }
+    }
+
+    /** What the chosen user is to one event, as the events table already worked out. */
+    private UserEventDto involvementIn(int eventId) {
+        for (EventRow row : userEvents) {
+            if (row.event().id() == eventId) {
+                return row.involvement();
+            }
+        }
+        return null;
     }
 
     private boolean isChosenUserBlocked() {
