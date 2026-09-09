@@ -207,6 +207,12 @@ public final class Verify {
             }
         }
         equal("the list of users shows her as blocked", flagged, true);
+
+        // A blocked user can still be looked at: a screen has to be able to show
+        // that somebody is blocked, and what they were left holding.
+        var details = engine.userDetails("Carol");
+        equal("her details can still be read", details.blocked(), true);
+        equal("with the event she is stuck in", (long) details.events().size(), 1L);
     }
 
     private static void aFaultyFileChangesNothing() throws Exception {

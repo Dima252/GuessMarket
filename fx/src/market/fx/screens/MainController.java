@@ -31,8 +31,9 @@ public final class MainController {
     @FXML private ProgressBar loadProgress;
     @FXML private TabPane tabs;
 
-    /** Filled in by the loader from the fx:id of the included screen, plus "Controller". */
+    /** Filled in by the loader from the fx:id of each included screen, plus "Controller". */
     @FXML private EventsController eventsViewController;
+    @FXML private UsersController usersViewController;
 
     private Stage stage;
 
@@ -44,6 +45,7 @@ public final class MainController {
     private void initialize() {
         tabs.setDisable(true);
         eventsViewController.setState(state);
+        usersViewController.setState(state);
     }
 
     /**
