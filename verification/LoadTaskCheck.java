@@ -17,8 +17,13 @@ public final class LoadTaskCheck {
     public static void main(String[] args) throws Exception {
         Platform.startup(() -> { });
         try {
+            // Every file the course supplies, and one of our own whose path has
+            // spaces in the folder and in the name.
+            run("testing_files/EX2/small.xml");
             run("testing_files/EX2/multiple.xml");
+            run("testing_files/EX2/error-2.xml");
             run("testing_files/EX2/error-3.xml");
+            run("extra-test-files/EX2/folder with spaces/events file.xml");
             run("testing_files/single.xml");
         } finally {
             Platform.exit();
@@ -59,7 +64,8 @@ public final class LoadTaskCheck {
             System.out.println("    loaded " + report.eventsLoaded() + " events, "
                     + report.usersLoaded() + " users");
         } else {
-            System.out.println("    refused with " + report.errors().size() + " problems:");
+            System.out.println("    refused with " + report.errors().size()
+                    + (report.errors().size() == 1 ? " problem:" : " problems:"));
             report.errors().forEach(problem -> System.out.println("      - " + problem));
         }
         System.out.println("    messages seen by the label:" + messages);

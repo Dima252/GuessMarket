@@ -25,10 +25,12 @@ All of it passed on the last run, from a clean `build` and `dist`:
 
 | Check | Result |
 |---|---|
-| `verify.bat` | 133 of 133 |
-| `verify-ui.bat` | the loading task, 18 on the events screen, 28 on the users screen |
-| `dist` copied to an empty folder and started there | window up, **stderr completely clean** |
+| `verify.bat` | 144 of 144, and the same under a comma-decimal locale |
+| `verify-ui.bat` | every course file through the loading task, 18 on the events screen, 28 on the users screen |
+| Zipped, extracted into a folder whose path has a space, started from `C:\` | window up, **stderr completely clean** |
 | Size of what would be zipped | 11.5 MB as a folder, 8.4 MB zipped |
+| `-Xlint:all` on both modules | no warnings |
+| The engine's independence | no `System.out`, no `Scanner`, no JavaFX, no knowledge of its caller |
 
 If a change breaks something, those three scripts say so in about a minute.
 

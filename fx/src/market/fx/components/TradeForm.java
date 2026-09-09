@@ -1,7 +1,5 @@
 package market.fx.components;
 
-import java.util.Locale;
-
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -21,7 +19,6 @@ import market.engine.dto.OptionStateDto;
 import market.engine.dto.OrderResultDto;
 import market.engine.dto.PurchaseResultDto;
 import market.engine.model.EventPhase;
-import market.engine.model.OrderBookMethod;
 import market.engine.model.OrderSide;
 import market.fx.AppState;
 import market.fx.util.Format;
@@ -217,8 +214,8 @@ public final class TradeForm extends VBox {
         try {
             return Double.parseDouble(text.trim());
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("\"" + text.trim() + "\" is not a price. A price looks "
-                    + "like " + String.format(Locale.US, "%.2f", OrderBookMethod.PRICE_STEP * 50) + ".");
+            throw new IllegalArgumentException("\"" + text.trim() + "\" is not a price. "
+                    + "A price looks like 0.50.");
         }
     }
 
