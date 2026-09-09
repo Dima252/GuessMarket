@@ -31,6 +31,9 @@ public final class MainController {
     @FXML private ProgressBar loadProgress;
     @FXML private TabPane tabs;
 
+    /** Filled in by the loader from the fx:id of the included screen, plus "Controller". */
+    @FXML private EventsController eventsViewController;
+
     private Stage stage;
 
     public void setStage(Stage stage) {
@@ -40,6 +43,7 @@ public final class MainController {
     @FXML
     private void initialize() {
         tabs.setDisable(true);
+        eventsViewController.setState(state);
     }
 
     /**
@@ -87,6 +91,9 @@ public final class MainController {
             statusLabel.setText(report.eventsLoaded() + " events and " + report.usersLoaded()
                     + " users are loaded.");
             tabs.setDisable(false);
+            state.selectEvent(null);
+            state.selectUser(null);
+            state.refresh();
         } else {
             // A faulty file changes nothing: whatever was loaded before is still there.
             statusLabel.setText("\"" + chosen.getName() + "\" was refused. Nothing has changed.");

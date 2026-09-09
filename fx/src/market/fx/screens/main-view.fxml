@@ -38,7 +38,7 @@
             <tabs>
                 <Tab fx:id="eventsTab" text="Events">
                     <content>
-                        <Label fx:id="eventsPlaceholder" text="Load a file to see the events."/>
+                        <fx:include fx:id="eventsView" source="events-view.fxml"/>
                     </content>
                 </Tab>
                 <Tab fx:id="usersTab" text="Users">
