@@ -32,17 +32,17 @@ The engine keeps its rule from Ex1: it is passive, prints nothing, and knows not
 
 Temurin JDK 25 is installed here and carries **no JavaFX**. Nothing on the grader's machine will have it either, so the runtime has to travel inside the zip.
 
-1. Download the **JavaFX 25 SDK for Windows x64** (gluonhq.com) and unpack it, e.g. `C:\javafx-sdk-25`.
-2. Compile and run with the module path:
-   ```
-   javac --module-path "C:\javafx-sdk-25\lib" --add-modules javafx.controls,javafx.fxml ...
-   java  --module-path "%~dp0javafx-sdk-25\lib" --add-modules javafx.controls,javafx.fxml -jar guess-market-fx.jar
-   ```
-3. **Ship the whole `javafx-sdk-25` folder** (`lib` *and* `bin` — the `bin` DLLs are the native half) next to the jars, and let `run.bat` reach it through `%~dp0`, so the path holds wherever the grader extracts the zip.
+**This is done and proven.** The JavaFX 25 SDK sits at `C:\Users\dimat\javafx-sdk-25.0.4`;
+`build.bat` reads `JAVAFX_HOME` and falls back to that path, and refuses to build
+with a clear message if the SDK is not there.
 
-Fallback, if the SDK folder proves awkward: the Maven Central artifacts with the `win` classifier (`javafx-base`, `javafx-graphics`, `javafx-controls`, version 25) carry the natives inside the jar and can sit on a plain class path. In that case the `Main-Class` must be a small launcher that only calls `Application.launch(...)`; a main class that itself extends `Application` refuses to start without the module path.
+- `build.bat` compiles the fx module with `--module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls,javafx.fxml`, and copies the SDK's `lib` **and** `bin` (the `bin` DLLs are the native half) into `dist\javafx`.
+- `dist\run.bat` starts it with `--module-path "%~dp0javafx\lib"`, so the folder works wherever it is unzipped, plus `--enable-native-access=javafx.graphics`, which is what stops Java 25 printing four warning lines about JavaFX's native libraries every single launch.
+- `Main-Class` is `market.fx.Launcher`, which only calls `Application.launch`. With the module path that is not strictly required, but it costs nothing and keeps the class-path fallback open.
 
-Either way, rehearse it in a fresh folder. A missing JavaFX runtime at the grader is a level 0, and a level 0 resubmission starts from 90.
+Rehearsed: `dist` copied to an empty folder, started from there, window up, **no output on stderr at all**. A missing JavaFX runtime at the grader is a level 0, and a level 0 resubmission starts from 90, so this gets re-rehearsed before the zip goes out.
+
+Scene Builder, if it is wanted for editing the FXML, is the **Java 21** build — the deck says so, and it edits the files fine regardless of the runtime we ship.
 
 ---
 
@@ -176,11 +176,18 @@ The validations of Ex1 all stay, and these are added. Each has to name what is w
 
 ### 5.1 How it is built
 
-The specification asks for an interface "as it was taught in class", and does not
-name a technique. So: **FXML with controllers** for the frame of each screen, and
-code for the parts whose shape depends on the event - the two order books, the
-participants, the trade form. That is the idiom the course demonstrates, and it
-keeps the parts that repeat per option out of a static layout file.
+The specification asks for an interface "as it was taught in class", and the
+course deck (08 - GUI and JavaFX, slides 49-63) teaches exactly that: FXML for
+the scene, `fx:controller` naming the controller, `@FXML` tying fields and
+handlers to it, an optional `initialize()` that runs once the fields are in
+place, and `FXMLLoader` — in the plain `load()` form, or built as an object when
+the controller itself is needed afterwards.
+
+So: **FXML with controllers** for the frame of each screen, and code for the
+parts whose shape depends on the event - the two order books, the participants,
+the trade form. The deck also teaches properties and bindings as the way a screen
+follows its data, and CSS through `#id` and `.class` selectors, which is the
+mechanism the skins bonus would use if it is ever reached.
 
 ```
 fx/src/market/fx/
@@ -219,9 +226,16 @@ nothing at all.
 
 A consequence worth planning for: `loadFile` is one call that either succeeds or
 comes back with a list of problems, and it does not report its way through. So
-`LoadFileTask` reports the steps around it - reading, checking, applying - and
-carries the second or so of deliberate delay the specification asks for. The
-engine keeps its signature and stays ignorant of who is calling it.
+`LoadFileTask` reports the steps around it - opening, reading, checking, done -
+through `updateMessage` and `updateProgress`, which is the pattern of slide 86:
+the task's `messageProperty` is bound to the status label and its
+`progressProperty` to the progress bar, and JavaFX moves those onto its own
+thread for us. Anything else has to be handed over in `Platform.runLater`, which
+is why the value is read inside `setOnSucceeded` and nowhere else.
+
+Those four steps carry the deliberate delay the specification asks for, about
+1.8 seconds in total. The engine keeps its signature and stays ignorant of who is
+calling it.
 
 ### 5.3 One detail pane, used twice
 
@@ -274,8 +288,8 @@ One window, one top bar, and two areas switched by a tab — that is what the sk
 | 2 | Engine: the order book, its matching, its mint and its statistics | 4 h | **done** |
 | 3 | The loader for the v2 format with all its validations | 1.5 h | **done** |
 | 4 | The checks against appendix A and the order book simulation (`verify.bat`) | 1.5 h | **done** |
-| 5 | JavaFX SDK in place; an empty window built by `build.bat`, packed with the SDK and started by `run.bat` **from a clean folder** | 1 h | next |
-| 6 | `main-view.fxml` and `events-view.fxml`: top bar, `LoadFileTask` with its progress bar, the table of events and its three filters | 3 h | |
+| 5 | JavaFX SDK in place; the window built by `build.bat`, packed with the SDK and started by `run.bat` **from a clean folder** | 1 h | **done** |
+| 6 | `main-view.fxml` with the top bar and `LoadFileTask` **done**; `events-view.fxml` with the table of events and its three filters | 3 h | next |
 | 7 | `EventDetailPane`: the LMSR block, and the two books side by side with their five figures and the participants | 3 h | |
 | 8 | `users-view.fxml`: the table, the details, the trade form, and open and close for a market maker | 3 h | |
 | 9 | The course files end to end through the interface, the resize check, a full run through | 2 h | |
