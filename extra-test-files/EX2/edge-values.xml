@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Guess-Market>
+	<GM-events>
+		<GM-event name="No commission at all">
+			<id>1</id>
+			<description>Zero is allowed.</description>
+			<commission type="on-purchase">0</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR>
+					<b>100</b>
+				</GM-LMSR>
+			</GM-method>
+		</GM-event>
+		<GM-event name="The most that is allowed">
+			<id>2</id>
+			<description>Ninety is the ceiling.</description>
+			<commission type="on-close">90</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR>
+					<b>50</b>
+				</GM-LMSR>
+			</GM-method>
+		</GM-event>
+		<GM-event name="Opens for nothing">
+			<id>3</id>
+			<description>An initial investment of zero is allowed.</description>
+			<commission type="on-close">0</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-order-book allow-mint="true" initial="0" d="1"/>
+			</GM-method>
+		</GM-event>
+	</GM-events>
+	<GM-users>
+		<GM-user name="Owner">
+			<initial-cash>1000</initial-cash>
+			<GM-market-maker>
+				<event id="1"/>
+				<event id="2"/>
+				<event id="3"/>
+			</GM-market-maker>
+		</GM-user>
+		<GM-user name="Trader">
+			<initial-cash>1000</initial-cash>
+		</GM-user>
+	</GM-users>
+</Guess-Market>
