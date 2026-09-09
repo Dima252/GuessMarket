@@ -48,9 +48,22 @@ jar --create --file dist\guess-market-fx.jar --manifest fx\manifest.txt -C build
 if errorlevel 1 goto failed
 
 echo [5/5] Assembling dist...
-mkdir dist\javafx
-xcopy /s /y /q "%JAVAFX_HOME%\lib\*" dist\javafx\lib\ > nul
+rem Only the four modules the application asks for travel with it. The whole SDK
+rem is 107 MB, nearly all of it jfxwebkit.dll, and this program has no WebView
+rem and plays no media - shipping those would multiply the size of the zip for
+rem nothing.
+mkdir dist\javafx\lib
+mkdir dist\javafx\bin
+for %%m in (base graphics controls fxml) do copy /y "%JAVAFX_HOME%\lib\javafx.%%m.jar" dist\javafx\lib\ > nul
+copy /y "%JAVAFX_HOME%\lib\javafx.properties" dist\javafx\lib\ > nul
+
+rem The natives are copied whole and the web and media ones are then dropped, so
+rem that anything unforeseen is still there.
 xcopy /s /y /q "%JAVAFX_HOME%\bin\*" dist\javafx\bin\ > nul
+for %%d in (jfxwebkit jfxmedia jfxmedia_qtkit gstreamer-lite glib-lite fxplugins) do (
+    if exist dist\javafx\bin\%%d.dll del /q dist\javafx\bin\%%d.dll
+)
+
 copy /y fx\run.bat dist\run.bat > nul
 
 echo.

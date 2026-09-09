@@ -27,15 +27,25 @@ java -version
 ## Building and checking
 
 ```
-build.bat
-verify.bat
+build.bat        compiles both modules and fills dist with what is submitted
+verify.bat       125 checks on the engine, no JavaFX needed
+verify-ui.bat    the screen checks, against the jars build.bat produced
+dist\run.bat     starts the application
 ```
 
-`build.bat` compiles the engine into `dist\guess-market-engine.jar`. `verify.bat`
-compiles it and runs the checks in `verification\Verify.java`, which reproduce the
-two worked examples the course supplies — the LMSR example of appendix A and the
-order book simulation, in both of its commission modes — and check every rule that
-refuses a request. All 125 of them have to pass before anything is submitted.
+`build.bat` needs the **JavaFX 25 SDK**. It reads `JAVAFX_HOME` and falls back to
+`C:\Users\dimat\javafx-sdk-25.0.4`; if the SDK is not there it stops and says so.
+Into `dist` it puts the two jars, `run.bat`, and the part of the JavaFX runtime
+the application actually loads — `base`, `graphics`, `controls`, `fxml` and their
+native libraries, without the web and media ones. That is the difference between
+a folder of 11 MB and one of 107 MB, and `jfxwebkit.dll` alone is 92 of them.
+
+`verify.bat` reproduces the two worked examples the course supplies — the LMSR
+example of appendix A and the order book simulation, in both of its commission
+modes — and checks every rule that refuses a request. `verify-ui.bat` drives the
+screens without a mouse: the loading task under a real JavaFX runtime, and the
+events screen through its filters and both kinds of event detail. Everything has
+to pass before anything is submitted.
 
 Both folders, `build` and `dist`, are build output and are not kept in the
 repository.
@@ -45,9 +55,11 @@ repository.
 | Path | What it holds |
 |---|---|
 | `engine/src` | The engine module, which becomes `guess-market-engine.jar`. It is passive: it answers requests, prints nothing, and knows nothing about who is calling it. |
+| `fx/src` | The JavaFX module, which becomes `guess-market-fx.jar` and holds `main`. The screens are FXML with controllers; what changes shape with the event — the order books, the participants — is built in code. |
+| `fx/run.bat`, `fx/manifest.txt` | The launcher copied into `dist`, and the manifest naming `market.fx.Launcher`. |
 | `ui/` | The console module of exercise 1, with the manifest and launcher it shipped with. Kept as a record and no longer built — see `ui/README.md`. |
-| `verification/` | `Verify.java`, the checks that reproduce the worked examples of the course. |
-| `build.bat`, `verify.bat` | Compile the engine, and compile it and run every check. |
+| `verification/` | The checks: `Verify.java` for the engine, and two more that drive the screens. |
+| `build.bat`, `verify.bat`, `verify-ui.bat` | Build, check the engine, check the screens. |
 | `testing_files/` | The files supplied with the course for exercise 1: the schema, sample event files, two faulty files, and the LMSR simulation. |
 | `testing_files/EX2/` | The same for exercise 2: the v2 schema, `multiple.xml` and `small.xml`, the two faulty files, and the Order Book simulation. |
 | `extra-test-files/` | Files written for testing this program: those of exercise 1 at the top, those of exercise 2 in `EX2/`. |
@@ -62,6 +74,15 @@ repository.
 | `market.engine.pricing` | The LMSR mathematics: the cost function, the value of an option, the price of a purchase. |
 | `market.engine.xml` | Reading a file of events and users, and checking every rule of the exercise. |
 | `market.engine.dto` | The immutable answers handed back to the caller, so the model never leaves the engine. |
+
+### The fx module
+
+`Launcher` starts it, `GuessMarketApp` builds the window from `main-view.fxml`,
+and `AppState` holds the engine, what is selected, and the one `refresh()` every
+screen is redrawn through — the seam a polled server slots into for exercise 3.
+`LoadFileTask` reads a file off the JavaFX thread and reports its steps through
+`updateMessage` and `updateProgress`, bound to the status label and the progress
+bar. `EventDetailPane` is built once and used wherever an event is shown.
 
 ### The two trading methods
 
@@ -105,5 +126,6 @@ And those of exercise 2 in `extra-test-files/EX2/`:
 | `docs/Guess Market - v3.pdf` | The exercise as it was given, version 3: all four exercises, the LMSR and Order Book appendices, and the three versions of the XML schema. |
 | `docs/EX2-sketch.pptx` | The layout sketch supplied for exercise 2: the two screens the window is expected to follow. |
 | `docs/EX1_PLAN.md` | The plan exercise 1 followed, kept as a record of the decisions. |
-| `docs/EX2_PLAN.md` | The plan for exercise 2: what the engine gained, how the order book works, the screens, packaging JavaFX, and what is left to do. |
+| `docs/STATUS.md` | **Where the work stands**: what is finished, what is left and roughly how long it needs, what to run to check that nothing has rotted, and the assumptions that belong in the submitted readme. The first thing to read when picking this up again. |
+| `docs/EX2_PLAN.md` | The plan for exercise 2: what the engine gained, how the order book works, the screens, packaging JavaFX, and the order of work. |
 | `docs/README_SUBMISSION.md` | The readme submitted with exercise 1: how to run it, what every class does, and every assumption taken. |

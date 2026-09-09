@@ -6,7 +6,9 @@ Weight 40%, max grade 110, due **12.9.26**. Same grading setup as Ex1: a clean W
 
 ---
 
-> **Where we stand.** The engine of exercise 2 is written and checked: users and accounts, market makers, the three phases, the order book with its matching and minting, and the v2 file format with all its validations. What is left is the JavaFX application in front of it.
+> **Where we stand** is kept in [STATUS.md](./STATUS.md), which is the one to read first.
+>
+> In short: the engine of exercise 2 is written and checked: users and accounts, market makers, the three phases, the order book with its matching and minting, and the v2 file format with all its validations. What is left is the JavaFX application in front of it.
 >
 > `verify.bat` runs 125 checks against the two reference documents of the course - the worked example of appendix A and the order book simulation - and they all pass. Run it after every change.
 >
