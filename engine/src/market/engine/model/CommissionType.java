@@ -16,10 +16,6 @@ public enum CommissionType {
         this.displayName = displayName;
     }
 
-    public String xmlValue() {
-        return xmlValue;
-    }
-
     public String displayName() {
         return displayName;
     }

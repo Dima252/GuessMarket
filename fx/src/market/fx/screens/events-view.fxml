@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
+
+<SplitPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+           fx:controller="market.fx.screens.EventsController"
+           dividerPositions="0.42">
+
+    <items>
+        <VBox spacing="8.0" minWidth="240.0">
+            <padding>
+                <Insets top="10.0" right="10.0" bottom="10.0" left="10.0"/>
+            </padding>
+
+            <!-- The filter line. Every filter keeps an "all" of its own, so that
+                 nothing can be hidden by accident. -->
+            <FlowPane hgap="6.0" vgap="6.0">
+                <fx:define>
+                    <ToggleGroup fx:id="methodFilter"/>
+                    <ToggleGroup fx:id="statusFilter"/>
+                    <ToggleGroup fx:id="commissionFilter"/>
+                </fx:define>
+
+                <Label text="Method:"/>
+                <ToggleButton text="All" toggleGroup="$methodFilter" selected="true" userData="all"/>
+                <ToggleButton text="LMSR" toggleGroup="$methodFilter" userData="LMSR"/>
+                <ToggleButton text="Order Book" toggleGroup="$methodFilter" userData="Order Book"/>
+            </FlowPane>
+
+            <FlowPane hgap="6.0" vgap="6.0">
+                <Label text="Status:"/>
+                <ToggleButton text="All" toggleGroup="$statusFilter" selected="true" userData="all"/>
+                <ToggleButton text="Not started" toggleGroup="$statusFilter" userData="Not started"/>
+                <ToggleButton text="Active" toggleGroup="$statusFilter" userData="Active"/>
+                <ToggleButton text="Closed" toggleGroup="$statusFilter" userData="Closed"/>
+            </FlowPane>
+
+            <FlowPane hgap="6.0" vgap="6.0">
+                <Label text="Commission:"/>
+                <ToggleButton text="All" toggleGroup="$commissionFilter" selected="true" userData="all"/>
+                <ToggleButton text="On purchase" toggleGroup="$commissionFilter" userData="On purchase"/>
+                <ToggleButton text="On close" toggleGroup="$commissionFilter" userData="On close"/>
+            </FlowPane>
+
+            <TableView fx:id="eventsTable" VBox.vgrow="ALWAYS"/>
+            <Label fx:id="countLabel" text=""/>
+        </VBox>
+
+        <ScrollPane fx:id="detailScroll" fitToWidth="true" minWidth="260.0"/>
+    </items>
+
+</SplitPane>
