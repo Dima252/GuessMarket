@@ -54,12 +54,12 @@ GuessMarket/
 ├─ ui/src/                # the Ex1 console, no longer built (see ui/README.md)
 ├─ fx/src/                # NEXT - the JavaFX module (main + every screen)
 │  └─ market/fx/...
+├─ fx/run.bat             # the launcher shipped inside dist, beside its module
 ├─ verification/          # the checks that reproduce the two reference documents
 ├─ testing_files/EX2/     # the course files for this exercise
 ├─ extra-test-files/EX2/  # fixtures of our own, valid and faulty
 ├─ build.bat              # compiles the engine; gains the fx module next
-├─ verify.bat             # compiles the engine and runs every check
-└─ packaging/run-fx.bat   # the launcher shipped inside dist
+└─ verify.bat             # compiles the engine and runs every check
 ```
 
 The Ex2 submission is one zip holding `guess-market-engine.jar`, `guess-market-fx.jar`, the JavaFX folder, `run.bat` and the readme.

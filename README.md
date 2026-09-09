@@ -45,9 +45,8 @@ repository.
 | Path | What it holds |
 |---|---|
 | `engine/src` | The engine module, which becomes `guess-market-engine.jar`. It is passive: it answers requests, prints nothing, and knows nothing about who is calling it. |
-| `ui/src` | The console module of exercise 1. It is kept as a record and is no longer built — see `ui/README.md`. |
+| `ui/` | The console module of exercise 1, with the manifest and launcher it shipped with. Kept as a record and no longer built — see `ui/README.md`. |
 | `verification/` | `Verify.java`, the checks that reproduce the worked examples of the course. |
-| `packaging/run.bat` | The launcher that is copied into `dist` and shipped with the submission. |
 | `build.bat`, `verify.bat` | Compile the engine, and compile it and run every check. |
 | `testing_files/` | The files supplied with the course for exercise 1: the schema, sample event files, two faulty files, and the LMSR simulation. |
 | `testing_files/EX2/` | The same for exercise 2: the v2 schema, `multiple.xml` and `small.xml`, the two faulty files, and the Order Book simulation. |

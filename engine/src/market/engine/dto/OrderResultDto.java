@@ -9,7 +9,4 @@ import java.util.List;
 public record OrderResultDto(List<TradeDto> executed,
                              long restingQuantity,
                              EventStateDto state) {
-    public boolean executedAnything() {
-        return !executed.isEmpty();
-    }
 }

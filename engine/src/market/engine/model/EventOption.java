@@ -1,6 +1,12 @@
 package market.engine.model;
 
-/** One possible outcome of an event, together with the amount of shares bought of it. */
+/**
+ * One possible outcome of an event, together with how many shares of it exist.
+ * <p>
+ * Under LMSR shares come into being by being bought; in an order book they are
+ * minted, either by the market maker or by two buyers covering a whole pair, and
+ * change hands afterwards without the count moving.
+ */
 public final class EventOption {
 
     private final String name;
@@ -18,7 +24,7 @@ public final class EventOption {
         return sharesBought;
     }
 
-    /** Package private on purpose: shares may only change through {@link Event#buy}. */
+    /** Package private on purpose: only a trading method may bring shares into being. */
     void addShares(long amount) {
         sharesBought += amount;
     }

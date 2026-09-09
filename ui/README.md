@@ -11,3 +11,8 @@ single-user engine of exercise 1 and does not compile against that API any more.
 Exercise 1 has been submitted and graded on its own jars, so nothing is lost by
 leaving it here as a record. Exercise 2 replaces it with the JavaFX application,
 which becomes the active module in its place.
+
+`manifest.txt` and `run.bat` are the two files that shipped with it: the manifest
+that names its main class and points at the engine jar beside it, and the batch
+file the grader ran. They live here now rather than in a folder of their own,
+because they belong to this module and to nothing else.

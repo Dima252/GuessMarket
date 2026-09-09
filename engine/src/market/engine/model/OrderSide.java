@@ -18,10 +18,6 @@ public enum OrderSide {
         return displayName;
     }
 
-    public OrderSide opposite() {
-        return this == BUY ? SELL : BUY;
-    }
-
     /** Reads a side written by the user, ignoring case. */
     public static Optional<OrderSide> parse(String value) {
         String normalized = value == null ? "" : value.trim();
