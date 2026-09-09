@@ -1,6 +1,10 @@
 # Guess Market — Exercise 1 Execution Plan (Console App)
 
-Spec: [Guess Market - v2.pdf](./Guess%20Market%20-%20v2.pdf) — pages 10–14 (Ex1), 25–26 (Appendix A: LMSR), 30–31 + 33 (Appendix C/D: XML v1).
+Spec: [Guess Market - v3.pdf](./Guess%20Market%20-%20v3.pdf) — pages 13–19 (Ex1), 32–33 (Appendix A: LMSR), 37–38 + 41 (Appendix C/D: XML v1).
+
+> Written and submitted against spec v2; the page numbers above are the ones in v3, which is the copy kept in this folder now (v2 stays in the git history).
+> The exercise that follows is planned in [EX2_PLAN.md](./EX2_PLAN.md).
+
 Weight 20%, max grade 105, due **19.8.26**. Graded on a clean Windows 10 box, **no IDE**, `java -jar` from cmd.
 
 ---
@@ -26,7 +30,7 @@ The machine had **JDK 8 only**, while the spec mandates **Java 25**. Temurin JDK
 ```
 GuessMarket/
 ├─ docs/
-│  ├─ Guess Market - v2.pdf
+│  ├─ Guess Market - v3.pdf
 │  └─ EX1_PLAN.md
 ├─ engine/src/                     # module 1 — passive engine (no I/O)
 │  └─ market/engine/...
