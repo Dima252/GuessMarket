@@ -52,8 +52,7 @@ Either way, rehearse it in a fresh folder. A missing JavaFX runtime at the grade
 GuessMarket/
 ├─ engine/src/            # done: users, market makers, phases, order book
 ├─ ui/src/                # the Ex1 console, no longer built (see ui/README.md)
-├─ fx/src/                # NEXT - the JavaFX module (main + every screen)
-│  └─ market/fx/...
+├─ fx/src/market/fx/      # NEXT - the JavaFX module (see section 5)
 ├─ fx/run.bat             # the launcher shipped inside dist, beside its module
 ├─ verification/          # the checks that reproduce the two reference documents
 ├─ testing_files/EX2/     # the course files for this exercise
@@ -173,7 +172,81 @@ The validations of Ex1 all stay, and these are added. Each has to name what is w
 
 ---
 
-## 5. The screens (follow the sketch)
+## 5. The JavaFX module
+
+### 5.1 How it is built
+
+The specification asks for an interface "as it was taught in class", and does not
+name a technique. So: **FXML with controllers** for the frame of each screen, and
+code for the parts whose shape depends on the event - the two order books, the
+participants, the trade form. That is the idiom the course demonstrates, and it
+keeps the parts that repeat per option out of a static layout file.
+
+```
+fx/src/market/fx/
+├─ Launcher.java            # main; only calls Application.launch
+├─ GuessMarketApp.java      # the Application: stage, scene, main-view.fxml
+├─ AppState.java            # the engine, the loaded path, the selected user and event
+├─ screens/
+│  ├─ main-view.fxml        # top bar (load button + path) and the two tabs
+│  ├─ MainController.java
+│  ├─ events-view.fxml      # filters, the table of events, the detail area
+│  ├─ EventsController.java
+│  ├─ users-view.fxml       # the table of users, the details of the chosen one
+│  └─ UsersController.java
+├─ components/
+│  ├─ EventDetailPane.java  # built once, used on both tabs
+│  ├─ OrderBookPane.java    # one book: its orders and its five figures
+│  ├─ ParticipantsTable.java
+│  └─ TradeForm.java        # LMSR quantity, or side/quantity/price for a book
+├─ tasks/LoadFileTask.java
+└─ util/Format.java
+```
+
+FXML files are loaded through `getClass().getResource("/market/fx/screens/...")`
+and are packed into the jar beside the classes, so nothing depends on where the
+program was started from.
+
+### 5.2 Where the Task belongs
+
+**In this module, not in the engine.** A `Task` is JavaFX through and through: it
+exists to be bound to controls, and whoever writes one has to know which of its
+methods reach the interface directly and which need `Platform.runLater`. Putting
+it in the engine would paint the engine in the colours of one particular caller -
+the same engine that has to run inside a console in exercise 1 and inside a
+servlet in exercise 3, where `messageProperty` and `progressProperty` mean
+nothing at all.
+
+A consequence worth planning for: `loadFile` is one call that either succeeds or
+comes back with a list of problems, and it does not report its way through. So
+`LoadFileTask` reports the steps around it - reading, checking, applying - and
+carries the second or so of deliberate delay the specification asks for. The
+engine keeps its signature and stays ignorant of who is calling it.
+
+### 5.3 One detail pane, used twice
+
+The sketch puts event details on both tabs: on the Events tab as a view of the
+event, and on the Users tab as the place where the chosen user acts. That is one
+`EventDetailPane` with an optional acting user - read only when there is none,
+and grown a `TradeForm` when there is one, plus the open and close buttons when
+that user is the market maker of the event in front of them. Building it twice
+is the difference between three hours and six.
+
+### 5.4 Refreshing
+
+`AppState` exposes one `refresh()` that re-reads the DTOs it needs and rebinds
+the screens. Exercise 3 replaces the engine behind it with a server polled every
+half second; if refreshing is one method now, that becomes a change of source
+rather than a rewrite of every screen.
+
+### 5.5 Numbers on the screen
+
+`Format` holds it in one place: `Locale.US`, at most two decimals, and a dash for
+the figures that legitimately have none. An empty book has no MID and no SPREAD,
+and an option nobody has traded has no LAST - printing `0.00` there would be a
+lie. Lists count from 1, and options are chosen by name rather than by index.
+
+## 6. The screens (follow the sketch)
 
 One window, one top bar, and two areas switched by a tab — that is what the sketch shows, and the spec asks to stay close to it.
 
@@ -193,7 +266,7 @@ One window, one top bar, and two areas switched by a tab — that is what the sk
 
 ---
 
-## 6. Order of work — three days to 12.9.26
+## 7. Order of work — three days to 12.9.26
 
 | # | Step | Est. | State |
 |---|---|---|---|
@@ -201,10 +274,10 @@ One window, one top bar, and two areas switched by a tab — that is what the sk
 | 2 | Engine: the order book, its matching, its mint and its statistics | 4 h | **done** |
 | 3 | The loader for the v2 format with all its validations | 1.5 h | **done** |
 | 4 | The checks against appendix A and the order book simulation (`verify.bat`) | 1.5 h | **done** |
-| 5 | JavaFX SDK in place; an empty window built by `build.bat` and started by `run.bat` from a clean folder | 1 h | next |
-| 6 | The shell of the window: top bar, load through a `Task` with a progress bar, the events area with its filters | 3 h | |
-| 7 | Event details: the LMSR block, and the two books side by side with their statistics and participants | 3 h | |
-| 8 | Users area: the table, the details, and trading driven from the chosen user | 3 h | |
+| 5 | JavaFX SDK in place; an empty window built by `build.bat`, packed with the SDK and started by `run.bat` **from a clean folder** | 1 h | next |
+| 6 | `main-view.fxml` and `events-view.fxml`: top bar, `LoadFileTask` with its progress bar, the table of events and its three filters | 3 h | |
+| 7 | `EventDetailPane`: the LMSR block, and the two books side by side with their five figures and the participants | 3 h | |
+| 8 | `users-view.fxml`: the table, the details, the trade form, and open and close for a market maker | 3 h | |
 | 9 | The course files end to end through the interface, the resize check, a full run through | 2 h | |
 | 10 | Readme, jars, extract-and-run rehearsal in a clean folder, zip, push | 1.5 h | |
 
@@ -212,7 +285,7 @@ Roughly 13 hours are left, and steps 5 to 9 are the grade. If the time runs out,
 
 ---
 
-## 7. Bonuses (only once everything above is finished, and on time)
+## 8. Bonuses (only once everything above is finished, and on time)
 
 | # | Bonus | Worth | Note |
 |---|---|---|---|
@@ -221,11 +294,11 @@ Roughly 13 hours are left, and steps 5 to 9 are the grade. If the time runs out,
 | 3 | Charts: the price of an option over time, and the balance of a user over time | +8 (up to 100) | the data is already being recorded — the cheapest of the four |
 | 4 | Creating a new event from the interface, becoming its market maker | +10 (above 100) | the largest, and the one Ex3 does not need |
 
-Name every bonus implemented at the **top** of the readme, or it is not graded.
+Nothing here is started until the required functionality works, the course files run through the interface, and the zip has been rehearsed from a fresh folder. Charts are the cheapest of the four, because every trade and every movement of money is already recorded. Name every bonus implemented at the **top** of the readme, or it is not graded.
 
 ---
 
-## 8. Gotchas checklist
+## 9. Gotchas checklist
 
 - [ ] JavaFX travels inside the zip; `run.bat` uses `%~dp0`; the whole thing was rehearsed in a fresh folder.
 - [ ] The engine module still has no `System.out`, no `Scanner`, and no JavaFX import.
