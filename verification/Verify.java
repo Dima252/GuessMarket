@@ -358,8 +358,8 @@ public final class Verify {
         rejected(COURSE + "error-2.xml", "must start with more than 0");
         rejected(COURSE + "error-3.xml", "no event with that id");
         rejected(COURSE + "error-3.xml", "has no market maker");
-        rejected("testing_files/single.xml", "exercise 2 format");
-        rejected("testing_files/multiple.xml", "exercise 2 format");
+        rejected("testing_files/EX1/single.xml", "exercise 2 format");
+        rejected("testing_files/EX1/multiple.xml", "exercise 2 format");
     }
 
     private static void ownFaultyFiles() {

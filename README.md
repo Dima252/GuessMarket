@@ -134,9 +134,8 @@ repository.
 | `ui/` | The console module of exercise 1, with the manifest and launcher it shipped with. Kept as a record and no longer built — see `ui/README.md`. |
 | `verification/` | The checks: `Verify.java` for the engine, and two more that drive the screens. |
 | `build.bat`, `verify.bat`, `verify-ui.bat` | Build, check the engine, check the screens. |
-| `testing_files/` | The files supplied with the course for exercise 1: the schema, sample event files, two faulty files, and the LMSR simulation. |
-| `testing_files/EX2/` | The same for exercise 2: the v2 schema, `multiple.xml` and `small.xml`, the two faulty files, and the Order Book simulation. |
-| `extra-test-files/` | Files written for testing this program: those of exercise 1 at the top, those of exercise 2 in `EX2/`. |
+| `testing_files/EX1/`, `testing_files/EX2/` | The files supplied with the course, one folder per exercise: the schema, the sample and faulty event files, and the simulation that goes with each. |
+| `extra-test-files/EX1/`, `extra-test-files/EX2/` | Files written for testing this program, split the same way. |
 | `docs/` | The exercise itself, the plans it is built from, and the readme submitted with exercise 1. |
 
 ### The engine module
@@ -170,8 +169,12 @@ minted against the account of the event.
 
 ## Test files
 
-`testing_files/` is untouched course material. `extra-test-files/` adds the cases
-it does not cover — those of exercise 1 at the top level:
+`testing_files/` is untouched course material, and `extra-test-files/` adds the
+cases it does not cover. Both are split by exercise, because the two formats
+are not interchangeable: a v1 file has no `GM-users` and exercise 2 refuses it
+on purpose.
+
+From exercise 1, in `extra-test-files/EX1/`:
 
 | File | What it is for |
 |---|---|
@@ -198,8 +201,8 @@ And those of exercise 2 in `extra-test-files/EX2/`:
 | File | What it is |
 |---|---|
 | `docs/Guess Market - v3.pdf` | The exercise as it was given, version 3: all four exercises, the LMSR and Order Book appendices, and the three versions of the XML schema. |
-| `docs/EX2-sketch.pptx` | The layout sketch supplied for exercise 2: the two screens the window is expected to follow. |
+| `docs/EX2_SKETCH.pptx` | The layout sketch supplied for exercise 2: the two screens the window is expected to follow. |
 | `docs/EX1_PLAN.md` | The plan exercise 1 followed, kept as a record of the decisions. |
 | `docs/STATUS.md` | **Where the work stands**: what is finished, what is left and roughly how long it needs, what to run to check that nothing has rotted, and the assumptions that belong in the submitted readme. The first thing to read when picking this up again. |
 | `docs/EX2_PLAN.md` | The plan for exercise 2: what the engine gained, how the order book works, the screens, packaging JavaFX, and the order of work. |
-| `docs/README_SUBMISSION.md` | The readme submitted with exercise 1: how to run it, what every class does, and every assumption taken. |
+| `docs/EX1_README_SUBMISSION.md` | The readme submitted with exercise 1: how to run it, what every class does, and every assumption taken. |

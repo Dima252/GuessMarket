@@ -24,7 +24,7 @@ public final class LoadTaskCheck {
             run("testing_files/EX2/error-2.xml");
             run("testing_files/EX2/error-3.xml");
             run("extra-test-files/EX2/folder with spaces/events file.xml");
-            run("testing_files/single.xml");
+            run("testing_files/EX1/single.xml");
         } finally {
             Platform.exit();
         }

@@ -13,4 +13,4 @@ Supplied with the course (Mama), untouched. The loader of exercise 2 has to hand
 
 Both faulty files must be **refused whole**, with a message that names the problem, and must leave whatever was already loaded untouched.
 
-The exercise 1 files stay one level up in `testing_files/`; they are in the v1 format (no `GM-users`) and are refused here by design.
+The exercise 1 files are in `testing_files/EX1/`; they are in the v1 format (no `GM-users`) and are refused here by design.

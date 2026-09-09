@@ -7,5 +7,7 @@ dist/
 *.iml
 .vscode/
 
-# assembled submission folder
+# assembled submission folders, named after the submitters' id numbers
 322810060_322582008/
+[0-9]*_[0-9]*/
+*.zip
