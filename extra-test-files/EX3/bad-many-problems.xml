@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Guess-Market>
+	<GM-events>
+		<GM-event name="Too greedy">
+			<description>Commission above ninety.</description>
+			<commission type="on-close">91</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR><b>100</b></GM-LMSR>
+			</GM-method>
+		</GM-event>
+		<GM-event name="No liquidity">
+			<description>b must be positive.</description>
+			<commission type="on-purchase">5</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR><b>0</b></GM-LMSR>
+			</GM-method>
+		</GM-event>
+		<GM-event name="Too greedy">
+			<description>A name used twice.</description>
+			<commission type="on-close">5</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR><b>100</b></GM-LMSR>
+			</GM-method>
+		</GM-event>
+		<GM-event name="Odd initial">
+			<description>Seven does not divide by two.</description>
+			<commission type="on-close">5</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+				<GM-option>No</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-order-book allow-mint="true" initial="7" d="2"/>
+			</GM-method>
+		</GM-event>
+	</GM-events>
+</Guess-Market>

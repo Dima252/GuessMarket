@@ -1,5 +1,7 @@
 package market.engine.model;
 
+import market.dto.OrderSide;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;

@@ -3,14 +3,16 @@ package market.engine.api;
 import java.util.ArrayList;
 import java.util.List;
 
-import market.engine.dto.EventStateDto;
-import market.engine.dto.EventSummaryDto;
-import market.engine.dto.OptionStateDto;
-import market.engine.dto.OrderBookDto;
-import market.engine.dto.OrderDto;
-import market.engine.dto.ParticipantDto;
-import market.engine.dto.TradeDto;
-import market.engine.dto.UserSummaryDto;
+import market.dto.AccountEntryDto;
+import market.dto.EventStateDto;
+import market.dto.EventSummaryDto;
+import market.dto.OptionStateDto;
+import market.dto.OrderBookDto;
+import market.dto.OrderDto;
+import market.dto.ParticipantDto;
+import market.dto.TradeDto;
+import market.dto.UserSummaryDto;
+import market.engine.model.AccountEntry;
 import market.engine.model.Event;
 import market.engine.model.EventOption;
 import market.engine.model.Order;
@@ -109,7 +111,6 @@ final class EventMapper {
         return new TradeDto(trade.serialNumber(),
                 trade.kind().displayName(),
                 trade.userName(),
-                trade.counterpartyName(),
                 trade.optionName(),
                 trade.quantity(),
                 trade.pricePerShare(),
@@ -120,6 +121,14 @@ final class EventMapper {
 
     static UserSummaryDto userSummary(User user, boolean marketMaker) {
         return new UserSummaryDto(user.name(), user.balance(), marketMaker, user.isBlocked());
+    }
+
+    static AccountEntryDto accountEntry(AccountEntry entry) {
+        return new AccountEntryDto(entry.serial(),
+                entry.kind().displayName(),
+                entry.description(),
+                entry.amount(),
+                entry.balanceAfter());
     }
 
     private static List<OrderDto> orders(List<Order> orders) {

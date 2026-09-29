@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="market.fx.screens.MainController">
+
+    <top>
+        <!-- Who is logged in and what they have, always in sight. A FlowPane, so
+             that it wraps rather than cuts off when the window is narrow. -->
+        <FlowPane hgap="14.0" vgap="6.0" alignment="CENTER_LEFT" styleClass="top-bar">
+            <padding>
+                <Insets top="8.0" right="12.0" bottom="8.0" left="12.0"/>
+            </padding>
+            <Label fx:id="titleLabel" text="Guess Market"/>
+            <Label fx:id="userLabel" text=""/>
+            <Label fx:id="balanceLabel" text=""/>
+            <Label fx:id="connectionLabel" text="" wrapText="true"/>
+            <Button text="Log out" onAction="#onLogout"/>
+        </FlowPane>
+    </top>
+
+    <center>
+        <TabPane fx:id="tabs" tabClosingPolicy="UNAVAILABLE">
+            <tabs>
+                <Tab text="Events">
+                    <content>
+                        <fx:include fx:id="eventsView" source="events-view.fxml"/>
+                    </content>
+                </Tab>
+                <Tab text="Account">
+                    <content>
+                        <fx:include fx:id="accountView" source="account-view.fxml"/>
+                    </content>
+                </Tab>
+                <Tab text="Chat">
+                    <content>
+                        <fx:include fx:id="chatView" source="chat-view.fxml"/>
+                    </content>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </center>
+
+</BorderPane>

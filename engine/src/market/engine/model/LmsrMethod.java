@@ -20,10 +20,6 @@ public final class LmsrMethod extends TradingMethod {
         this.optionCount = optionCount;
     }
 
-    public int b() {
-        return b;
-    }
-
     @Override
     public String displayName() {
         return "LMSR";
@@ -41,7 +37,8 @@ public final class LmsrMethod extends TradingMethod {
 
     @Override
     void open(Event event, User marketMaker) {
-        marketMaker.pay(openingCost());
+        marketMaker.pay(openingCost(), AccountEntryKind.EVENT_FUNDING,
+                "The opening subsidy of \"" + event.name() + "\"");
         event.creditAccount(openingCost());
     }
 
@@ -66,7 +63,10 @@ public final class LmsrMethod extends TradingMethod {
         double sharesCost = quoteBuy(event, optionIndex, quantity);
         double commission = event.commissionOnPurchase(sharesCost);
 
-        buyer.pay(sharesCost + commission);
+        String what = String.format(java.util.Locale.US, "%d \"%s\" in \"%s\"",
+                quantity, event.options().get(optionIndex).name(), event.name());
+        buyer.pay(sharesCost, AccountEntryKind.PURCHASE, "Bought " + what);
+        buyer.pay(commission, AccountEntryKind.COMMISSION_PAID, "Commission on buying " + what);
         event.creditAccount(sharesCost);
         event.payCommissionToMarketMaker(commission);
 

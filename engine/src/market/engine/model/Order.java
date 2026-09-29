@@ -1,5 +1,7 @@
 package market.engine.model;
 
+import market.dto.OrderSide;
+
 /**
  * One instruction waiting in an order book: who gave it, which way it goes, how
  * many shares are still open on it, and the price asked for a single share.

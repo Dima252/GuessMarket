@@ -1,26 +1,34 @@
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Locale;
 
+import market.dto.AccountEntryDto;
+import market.dto.EventStateDto;
+import market.dto.EventSummaryDto;
+import market.dto.LedgerDto;
+import market.dto.LoadReportDto;
+import market.dto.OrderBookDto;
+import market.dto.OrderSide;
+import market.dto.UserSummaryDto;
 import market.engine.api.EngineException;
 import market.engine.api.GuessMarketEngine;
 import market.engine.api.GuessMarketEngineImpl;
-import market.engine.dto.EventStateDto;
-import market.engine.dto.EventSummaryDto;
-import market.engine.dto.LoadReportDto;
-import market.engine.dto.OrderBookDto;
-import market.engine.dto.UserSummaryDto;
-import market.engine.model.OrderSide;
 
 /**
  * Checks the engine against the two reference documents of the course: the worked
  * example of appendix A, and the order book simulation, whose numbers were worked
- * out by hand from the ledger the simulation itself keeps.
+ * out by hand from the ledger the simulation itself keeps. Around those it checks
+ * what exercise 3 adds: users who log in and deposit, files that accumulate, the
+ * ledger of every account, and events with more than two options.
  */
 public final class Verify {
 
     private static int checks;
     private static int failures;
-    private static final String DIR = "extra-test-files/EX2/";
-    private static final String COURSE = "testing_files/EX2/";
+    private static final String DIR = "extra-test-files/EX3/";
+    private static final String COURSE = "testing_files/EX3/";
 
     public static void main(String[] args) throws Exception {
         appendixA();
@@ -32,7 +40,11 @@ public final class Verify {
         theEdgesTheRulesAllow();
         takingPartCountsFromTheFirstOrder();
         blockedUser();
-        aFaultyFileChangesNothing();
+        loggingIn();
+        filesAccumulate();
+        depositsAndTheLedger();
+        threeOptionsLmsr();
+        threeOptionsOrderBook();
         guards();
         courseFiles();
         ownFaultyFiles();
@@ -48,7 +60,7 @@ public final class Verify {
 
     private static void appendixA() throws Exception {
         section("Appendix A - the worked LMSR example (b = 100)");
-        GuessMarketEngine engine = load(DIR + "appendix-a-lmsr.xml");
+        GuessMarketEngine engine = world(DIR + "appendix-a-lmsr.xml", "Operator", "Operator", 1000, "Trader", 1000);
 
         engine.openEvent("Operator", 1);
         EventStateDto opened = engine.eventState(1);
@@ -68,6 +80,7 @@ public final class Verify {
         near("the event account is emptied", closed.state().accountBalance(), 0.00);
         near("the rest of the subsidy goes back to the market maker",
                 balance(engine, "Operator"), 962.0115);
+        ledgerMatchesBalances(engine);
     }
 
     // ------------------------------------------------ the order book simulation
@@ -76,7 +89,8 @@ public final class Verify {
                                             double zoe, double alice, double bob, double carol)
             throws Exception {
         section("The order book simulation, commission " + commissionMode);
-        GuessMarketEngine engine = load(DIR + "simulation-order-book-" + commissionMode + ".xml");
+        GuessMarketEngine engine = world(DIR + "simulation-order-book-" + commissionMode + ".xml", "Zoe",
+                "Zoe", 500, "Alice", 200, "Bob", 200, "Carol", 200);
         int yes = 0;
         int no = 1;
 
@@ -155,59 +169,66 @@ public final class Verify {
         near("and no money was created or destroyed",
                 balance(engine, "Zoe") + balance(engine, "Alice")
                         + balance(engine, "Bob") + balance(engine, "Carol"), 1100.00);
+        ledgerMatchesBalances(engine);
     }
 
     /**
-     * A whole file lived through: every event opened by its market maker, traded
-     * in by everybody, and closed. Whatever happened in between, the system
-     * cannot have created or destroyed a cent, and no event may keep anything.
+     * Two files lived through, uploaded by two different users: every event opened
+     * by its market maker, traded in by everybody, and closed. Whatever happened
+     * in between, the system cannot have created or destroyed a cent, and no event
+     * may keep anything.
      * <p>
      * This is the check that would catch a mistake in any of the money paths at
      * once, without having to guess which one.
      */
     private static void moneyIsConserved() throws Exception {
-        section("A file lived through from start to finish");
-        GuessMarketEngine engine = load(COURSE + "multiple.xml");
+        section("Two files lived through from start to finish");
+        GuessMarketEngine engine = users("Tikva", 10000, "Avrum", 1000, "Menash", 100);
+        upload(engine, "Tikva", COURSE + "multiple.xml");
+        upload(engine, "Avrum", COURSE + "small.xml");
+        // 1 Earth Quake (order book, no mint), 2 World Cap (order book, mint),
+        // 3 Will it rain (LMSR) - all Tikva's; 4 Mujtaba (LMSR) - Avrum's.
 
         double before = totalMoney(engine);
-        near("the file starts with", before, 11100.00);
+        near("the users deposited", before, 11100.00);
 
-        // Every market maker opens what is theirs.
         engine.openEvent("Tikva", 1);
-        engine.openEvent("Avrum", 2);
+        engine.openEvent("Tikva", 2);
         engine.openEvent("Tikva", 3);
-        engine.openEvent("Tikva", 4);
+        engine.openEvent("Avrum", 4);
         near("opening moved money about but created none", totalMoney(engine), before);
 
         // LMSR: two people buy into the same event.
-        engine.buy("Menash", 1, 0, 10);
-        engine.buy("Avrum", 1, 1, 25);
+        engine.buy("Menash", 4, 0, 10);
+        engine.buy("Tikva", 4, 1, 25);
+        engine.buy("Avrum", 3, 0, 15);
         near("nor did buying against the event", totalMoney(engine), before);
 
         // Order book: the market maker offers, somebody takes, and a mint happens
         // between two buyers of opposite options.
-        engine.placeOrder("Avrum", 2, 0, OrderSide.SELL, 40, 0.60);
+        engine.placeOrder("Tikva", 2, 0, OrderSide.SELL, 40, 0.60);
         engine.placeOrder("Menash", 2, 0, OrderSide.BUY, 20, 0.60);
-        engine.placeOrder("Tikva", 2, 1, OrderSide.BUY, 30, 0.45);
+        engine.placeOrder("Avrum", 2, 1, OrderSide.BUY, 30, 0.45);
         engine.placeOrder("Menash", 2, 0, OrderSide.BUY, 10, 0.60);
         near("nor trading between users, nor minting", totalMoney(engine), before);
 
         // The other order book, where minting is switched off.
-        engine.placeOrder("Tikva", 3, 0, OrderSide.SELL, 100, 0.55);
-        engine.placeOrder("Avrum", 3, 0, OrderSide.BUY, 60, 0.55);
+        engine.placeOrder("Tikva", 1, 0, OrderSide.SELL, 100, 0.55);
+        engine.placeOrder("Avrum", 1, 0, OrderSide.BUY, 60, 0.55);
         near("nor an event that forbids minting", totalMoney(engine), before);
 
         // And everything is decided.
-        engine.closeEvent("Tikva", 1, 0);
-        engine.closeEvent("Avrum", 2, 0);
-        engine.closeEvent("Tikva", 3, 1);
-        engine.closeEvent("Tikva", 4, 0);
+        engine.closeEvent("Tikva", 1, 1);
+        engine.closeEvent("Tikva", 2, 0);
+        engine.closeEvent("Tikva", 3, 0);
+        engine.closeEvent("Avrum", 4, 0);
 
         near("after everything closed, the same money is still there", totalMoney(engine), before);
         for (int eventId = 1; eventId <= 4; eventId++) {
             near("event " + eventId + " kept nothing", engine.eventState(eventId).accountBalance(), 0.00);
         }
         near("and it is all in the accounts of the three users", totalUserMoney(engine), before);
+        ledgerMatchesBalances(engine);
     }
 
     /** Everything the system holds: what the users have, and what the events do. */
@@ -219,7 +240,7 @@ public final class Verify {
         return total;
     }
 
-    private static double totalUserMoney(GuessMarketEngine engine) throws EngineException {
+    private static double totalUserMoney(GuessMarketEngine engine) {
         double total = 0.0;
         for (UserSummaryDto user : engine.listUsers()) {
             total += user.balance();
@@ -241,7 +262,7 @@ public final class Verify {
      */
     private static void aBaseValueOtherThanOne() throws Exception {
         section("An order book where a pair is worth five, not one");
-        GuessMarketEngine engine = load(DIR + "base-value-five.xml");
+        GuessMarketEngine engine = world(DIR + "base-value-five.xml", "Zoe", "Zoe", 500, "Alice", 200, "Bob", 200);
         int yes = 0;
         int no = 1;
 
@@ -274,7 +295,7 @@ public final class Verify {
     /** The values the specification allows at the very edge of what it allows. */
     private static void theEdgesTheRulesAllow() throws Exception {
         section("The edges of what the rules permit");
-        GuessMarketEngine engine = load(DIR + "edge-values.xml");
+        GuessMarketEngine engine = world(DIR + "edge-values.xml", "Owner", "Owner", 1000, "Trader", 1000);
         equal("a file with no commission, the largest commission, and nothing to "
                 + "open with, is accepted", (long) engine.listEvents().size(), 3L);
 
@@ -295,13 +316,23 @@ public final class Verify {
         near("opening for nothing costs nothing", balance(engine, "Owner"), before);
         equal("and no shares were made", engine.eventState(3).options().get(0).sharesBought(), 0L);
 
-        rejected(DIR + "bad-three-options.xml", "but every event must have exactly 2");
-        rejected(DIR + "bad-allow-mint.xml", "only true or false are allowed");
+        // An initial investment that does not divide by the base value: the
+        // specification asks for the checks of exercise 1 only, so the file is
+        // accepted, and opening buys the whole sets it pays for - 33 at 3 each.
+        GuessMarketEngine odd = world(DIR + "initial-not-divisible.xml", "Owner", "Owner", 500);
+        equal("a file whose initial investment does not divide by d is accepted",
+                (long) odd.listEvents().size(), 1L);
+        odd.openEvent("Owner", 1);
+        near("the market maker paid for 33 whole sets", balance(odd, "Owner"), 401.00);
+        equal("and holds 33 shares of each option", odd.eventState(1).options().get(1).sharesBought(), 33L);
+        odd.closeEvent("Owner", 1, 0);
+        near("which pay back the 99 when the event closes", balance(odd, "Owner"), 500.00);
     }
 
     private static void mintCanBeSwitchedOff() throws Exception {
         section("An event that does not allow minting");
-        GuessMarketEngine engine = load(DIR + "order-book-no-mint.xml");
+        GuessMarketEngine engine = world(DIR + "order-book-no-mint.xml", "Zoe",
+                "Zoe", 500, "Alice", 200, "Carol", 200);
         engine.openEvent("Zoe", 1);
         engine.placeOrder("Carol", 1, 1, OrderSide.BUY, 35, 0.42);
         var order = engine.placeOrder("Alice", 1, 0, OrderSide.BUY, 40, 0.62);
@@ -310,10 +341,9 @@ public final class Verify {
         equal("and no new shares appeared", engine.eventState(1).options().get(0).sharesBought(), 100L);
     }
 
-
     private static void takingPartCountsFromTheFirstOrder() throws Exception {
         section("An order that only waits still counts as taking part");
-        GuessMarketEngine engine = load(COURSE + "small.xml");
+        GuessMarketEngine engine = world(COURSE + "multiple.xml", "Avrum", "Avrum", 1000, "Menash", 100);
         engine.openEvent("Avrum", 2);
 
         // Menash buys nothing: his order rests in the book, unmatched.
@@ -331,8 +361,8 @@ public final class Verify {
     }
 
     private static void blockedUser() throws Exception {
-        section("A user who ends up owing money");
-        GuessMarketEngine engine = load(DIR + "blocked-user.xml");
+        section("A user who ends up owing money, and pays it back");
+        GuessMarketEngine engine = world(DIR + "blocked-user.xml", "Zoe", "Zoe", 500, "Carol", 100);
         engine.openEvent("Zoe", 1);
 
         // Each of the two orders is affordable on its own against a balance of 100.
@@ -345,65 +375,207 @@ public final class Verify {
         near("Carol now owes money", balance(engine, "Carol"), -8.00);
         refused("and she is blocked from acting any further",
                 () -> engine.placeOrder("Carol", 1, 0, OrderSide.BUY, 1, 0.10));
-
-        boolean flagged = false;
-        for (UserSummaryDto user : engine.listUsers()) {
-            if (user.name().equals("Carol")) {
-                flagged = user.blocked();
-            }
-        }
-        equal("the list of users shows her as blocked", flagged, true);
+        equal("the list of users shows her as blocked", blocked(engine, "Carol"), true);
 
         // A blocked user can still be looked at: a screen has to be able to show
         // that somebody is blocked, and what they were left holding.
         var details = engine.userDetails("Carol");
         equal("her details can still be read", details.blocked(), true);
         equal("with the event she is stuck in", (long) details.events().size(), 1L);
+
+        // Exercise 3 lets users deposit, and a deposit that covers the debt lifts the block.
+        engine.deposit("Carol", 5);
+        equal("a deposit that does not cover the debt leaves her blocked", blocked(engine, "Carol"), true);
+        engine.deposit("Carol", 4);
+        equal("one that does, frees her", blocked(engine, "Carol"), false);
+        var again = engine.placeOrder("Carol", 1, 0, OrderSide.BUY, 1, 0.01);
+        equal("and she may act again", again.restingQuantity(), 1L);
     }
 
-    private static void aFaultyFileChangesNothing() throws Exception {
-        section("A faulty file leaves what is loaded untouched");
-        GuessMarketEngine engine = load(COURSE + "multiple.xml");
-        engine.openEvent("Tikva", 1);
-        engine.buy("Menash", 1, 0, 10);
-        double before = engine.eventState(1).accountBalance();
+    // ------------------------------------------------------------ exercise 3
 
-        LoadReportDto broken = engine.loadFile(COURSE + "error-2.xml");
-        equal("the broken file is refused", broken.success(), false);
-        equal("the four events are still there", (long) engine.listEvents().size(), 4L);
-        near("the event still holds what it held", engine.eventState(1).accountBalance(), before);
-        equal("and the file on record is still the good one",
-                engine.loadedFilePath().endsWith("multiple.xml"), true);
+    private static void loggingIn() throws Exception {
+        section("Logging in by name");
+        GuessMarketEngine engine = new GuessMarketEngineImpl();
+        engine.addUser("Dana");
+        equal("a new user exists", engine.userExists("Dana"), true);
+        near("with an empty account", balance(engine, "Dana"), 0.00);
+        equal("and is nobody's market maker yet", engine.listUsers().get(0).marketMaker(), false);
+        refused("the same name is refused", () -> engine.addUser("Dana"));
+        refused("whatever its case and spaces", () -> engine.addUser("  dANA "));
+        refused("an empty name is refused", () -> engine.addUser("   "));
+        engine.addUser("Dan");
+        equal("a different name is welcome", (long) engine.listUsers().size(), 2L);
+        equal("no events to begin with", (long) engine.listEvents().size(), 0L);
+    }
 
-        LoadReportDto missing = engine.loadFile(COURSE + "does-not-exist.xml");
-        equal("so does a file that is not there at all", missing.success(), false);
-        equal("the events survive that too", (long) engine.listEvents().size(), 4L);
+    private static void filesAccumulate() throws Exception {
+        section("Uploaded files accumulate");
+        GuessMarketEngine engine = users("Tikva", 10000, "Avrum", 1000);
 
-        // A good file, on the other hand, replaces everything that was there.
-        LoadReportDto second = engine.loadFile(COURSE + "small.xml");
-        equal("a second good file is accepted", second.success(), true);
-        equal("and it replaced the first", (long) engine.listEvents().size(), 2L);
-        equal("with its own users", (long) engine.listUsers().size(), 3L);
-        near("and nothing of the old trading came with it",
-                engine.eventState(1).accountBalance(), 0.00);
+        LoadReportDto first = upload(engine, "Tikva", COURSE + "multiple.xml");
+        equal("the first file adds its three events", (long) first.eventsLoaded(), 3L);
+        engine.openEvent("Tikva", 3);
+        engine.buy("Avrum", 3, 0, 10);
+        double before = engine.eventState(3).accountBalance();
 
-        // The path a file chooser hands over can have spaces anywhere in it.
-        LoadReportDto spaced = engine.loadFile(DIR + "folder with spaces/events file.xml");
-        equal("a path with spaces loads", spaced.success(), true);
-        equal("with the events it holds", (long) spaced.eventsLoaded(), 2L);
+        LoadReportDto second = upload(engine, "Avrum", COURSE + "small.xml");
+        equal("a second file adds to them instead of replacing them", (long) engine.listEvents().size(), 4L);
+        equal("the new event is numbered on", (long) engine.listEvents().get(3).id(), 4L);
+        equal("its uploader is its market maker", engine.listEvents().get(3).marketMakerName(), "Avrum");
+        equal("the earlier events keep theirs", engine.listEvents().get(0).marketMakerName(), "Tikva");
+        near("and the trading already done is untouched", engine.eventState(3).accountBalance(), before);
+        equal("the report names what was added", second.eventNames().get(0), "Mujtaba is Dead");
+
+        LoadReportDto again = engine.uploadEvents("Avrum", open(COURSE + "multiple.xml"));
+        equal("the same file a second time is refused", again.success(), false);
+        equal("with one complaint per clashing name", (long) again.errors().size(), 3L);
+        LoadReportDto clash = engine.uploadEvents("Avrum", open(DIR + "clashes-with-course-multiple.xml"));
+        equal("so is any file with a name already in the system", clash.success(), false);
+        mentions("saying why", clash, "already in the system");
+
+        LoadReportDto broken = engine.uploadEvents("Avrum", open(DIR + "bad-many-problems.xml"));
+        equal("a faulty file is refused", broken.success(), false);
+        equal("and adds nothing, not even its sound events", (long) engine.listEvents().size(), 4L);
+        equal("nor does a file that is not XML at all",
+                engine.uploadEvents("Avrum", open("extra-test-files/EX3/not-an-xml.txt")).success(), false);
+
+        LoadReportDto spaced = upload(engine, "Tikva", DIR + "folder with spaces/events file.xml");
+        equal("a file from a folder with spaces is fine", spaced.success(), true);
+        equal("the system now holds five events", (long) engine.listEvents().size(), 5L);
+        equal("user summaries show who carries events",
+                engine.listUsers().get(1).marketMaker(), true);
+    }
+
+    private static void depositsAndTheLedger() throws Exception {
+        section("Deposits and the ledger of every account");
+        GuessMarketEngine engine = users("Zoe", 500);
+        engine.addUser("Alice");
+        refused("a deposit of nothing", () -> engine.deposit("Alice", 0));
+        refused("a negative deposit", () -> engine.deposit("Alice", -10));
+        refused("a deposit in fractions of a cent", () -> engine.deposit("Alice", 1.005));
+        refused("a deposit for nobody", () -> engine.deposit("Nobody", 10));
+        var after = engine.deposit("Alice", 200);
+        near("a deposit raises the balance", after.balance(), 200.00);
+
+        upload(engine, "Zoe", DIR + "simulation-order-book-on-purchase.xml");
+        engine.openEvent("Zoe", 1);
+        engine.placeOrder("Zoe", 1, 0, OrderSide.SELL, 50, 0.60);
+        engine.placeOrder("Alice", 1, 0, OrderSide.BUY, 50, 0.60);
+
+        LedgerDto alice = engine.ledger("Alice", 0);
+        equal("Alice's ledger: the deposit, the purchase and its commission", (long) alice.entries().size(), 3L);
+        AccountEntryDto purchase = alice.entries().get(1);
+        equal("the purchase is named as one", purchase.kind(), "Purchase");
+        near("for 50 at 0.60", purchase.amount(), -30.00);
+        near("with the balance it left", purchase.balanceAfter(), 170.00);
+        near("then the 1 percent commission", alice.entries().get(2).amount(), -0.30);
+
+        LedgerDto zoe = engine.ledger("Zoe", 0);
+        equal("Zoe's ledger shows the sale without her doing anything more",
+                zoe.entries().get(zoe.entries().size() - 2).kind(), "Sale");
+        equal("and the commission she collected as market maker",
+                zoe.entries().get(zoe.entries().size() - 1).kind(), "Commission received");
+
+        LedgerDto newer = engine.ledger("Alice", alice.lastSerial());
+        equal("asking from the last line seen returns nothing new", (long) newer.entries().size(), 0L);
+        engine.closeEvent("Zoe", 1, 0);
+        newer = engine.ledger("Alice", alice.lastSerial());
+        equal("until the event closes and pays her", (long) newer.entries().size(), 1L);
+        equal("which shows as a payout", newer.entries().get(0).kind(), "Payout");
+        near("of a dollar a share", newer.entries().get(0).amount(), 50.00);
+        ledgerMatchesBalances(engine);
+    }
+
+    /**
+     * Worked out by hand, b = 100 and three options: the subsidy is 100 ln 3 =
+     * 109.86; 50 Red cost 100 ln(e^0.5 + 2) - 109.86 = 19.58, after which Red is
+     * worth e^0.5 / (e^0.5 + 2) = 0.45 and each of the others 0.27. Red wins: the
+     * trader is paid 50, and the 79.44 left of the pot of 129.44 goes back to the
+     * market maker.
+     */
+    private static void threeOptionsLmsr() throws Exception {
+        section("An LMSR event with three options");
+        GuessMarketEngine engine = world(DIR + "three-options-lmsr.xml", "Owner", "Owner", 1000, "Trader", 1000);
+        engine.openEvent("Owner", 1);
+        EventStateDto opened = engine.eventState(1);
+        equal("it has three options", (long) opened.options().size(), 3L);
+        near("the subsidy is b ln 3", opened.accountBalance(), 109.86);
+        near("every option starts at a third", opened.options().get(2).value(), 0.3333);
+
+        var purchase = engine.buy("Trader", 1, 0, 50);
+        near("50 Red cost", purchase.sharesCost(), 19.58);
+        near("Red is now worth", purchase.state().options().get(0).value(), 0.4519);
+        near("Green", purchase.state().options().get(1).value(), 0.2741);
+        near("and Blue the same", purchase.state().options().get(2).value(), 0.2741);
+
+        engine.closeEvent("Owner", 1, 0);
+        near("the trader is paid for his fifty", balance(engine, "Trader"), 1030.42);
+        near("the market maker gets the rest back", balance(engine, "Owner"), 969.58);
+        near("the event kept nothing", engine.eventState(1).accountBalance(), 0.00);
+        ledgerMatchesBalances(engine);
+    }
+
+    /**
+     * With three options a set is one share of each: 30 sets for 30 dollars on
+     * opening. Two resting bids on Red and Green are not enough to mint - only a
+     * bid on Blue completes a set - and Alice's 0.30 falls short of the dollar.
+     * Her 0.40 completes it: Bob and Carol keep their 0.30, Alice pays the 0.40
+     * that is missing, five sets are born and the pot grows by five.
+     */
+    private static void threeOptionsOrderBook() throws Exception {
+        section("An order book event with three options");
+        GuessMarketEngine engine = world(DIR + "three-options-order-book.xml", "Zoe",
+                "Zoe", 500, "Alice", 100, "Bob", 100, "Carol", 100);
+        int red = 0;
+        int green = 1;
+        int blue = 2;
+        engine.openEvent("Zoe", 1);
+        near("opening bought 30 sets for 30", balance(engine, "Zoe"), 470.00);
+        equal("30 shares of Blue exist", engine.eventState(1).options().get(blue).sharesBought(), 30L);
+        equal("and three books", (long) engine.eventState(1).orderBooks().size(), 3L);
+
+        engine.placeOrder("Bob", 1, red, OrderSide.BUY, 5, 0.30);
+        var two = engine.placeOrder("Carol", 1, green, OrderSide.BUY, 5, 0.30);
+        equal("two options out of three mint nothing", (long) two.executed().size(), 0L);
+        var short1 = engine.placeOrder("Alice", 1, blue, OrderSide.BUY, 5, 0.30);
+        equal("nor do three bids that fall short of the dollar", (long) short1.executed().size(), 0L);
+
+        var set = engine.placeOrder("Alice", 1, blue, OrderSide.BUY, 5, 0.40);
+        equal("a bid that completes the dollar mints, one line per option", (long) set.executed().size(), 3L);
+        near("Bob keeps his own price", set.executed().get(0).pricePerShare(), 0.30);
+        near("Carol too", set.executed().get(1).pricePerShare(), 0.30);
+        near("Alice pays what completes the set", set.executed().get(2).pricePerShare(), 0.40);
+        EventStateDto state = engine.eventState(1);
+        equal("35 Red shares now exist", state.options().get(red).sharesBought(), 35L);
+        near("and the pot grew by a dollar a set", state.accountBalance(), 35.00);
+        equal("the bids that minted are gone from the books", (long) state.orderBooks().get(red).bids().size(), 0L);
+        equal("Alice's short bid still waits", (long) state.orderBooks().get(blue).bids().size(), 1L);
+
+        engine.closeEvent("Zoe", 1, blue);
+        near("Alice's five Blue pay five", balance(engine, "Alice"), 100.00 - 2.00 + 5.00);
+        near("Zoe's thirty pay thirty", balance(engine, "Zoe"), 500.00);
+        near("Bob lost his stake", balance(engine, "Bob"), 98.50);
+        near("the pot is empty", engine.eventState(1).accountBalance(), 0.00);
+        near("and the money is all still there", totalMoney(engine), 800.00);
+        ledgerMatchesBalances(engine);
     }
 
     // ----------------------------------------------------------------- guards
 
     private static void guards() throws Exception {
         section("The rules that refuse a request");
-        GuessMarketEngine engine = load(COURSE + "small.xml");
+        GuessMarketEngine engine = users("Tikva", 10000, "Avrum", 1000, "Menash", 100);
+        upload(engine, "Tikva", COURSE + "small.xml");
+        upload(engine, "Avrum", COURSE + "multiple.xml");
 
         refused("trading in an event nobody opened yet",
                 () -> engine.buy("Menash", 1, 0, 10));
         refused("a user who is not the market maker cannot open an event",
                 () -> engine.openEvent("Menash", 1));
         refused("an unknown user", () -> engine.buy("Nobody", 1, 0, 10));
+        refused("an unknown user cannot upload", () -> engine.uploadEvents("Nobody", open(COURSE + "small.xml")));
+        refused("an event that does not exist", () -> engine.eventState(99));
 
         engine.openEvent("Tikva", 1);
         refused("opening an event twice", () -> engine.openEvent("Tikva", 1));
@@ -411,55 +583,81 @@ public final class Verify {
         refused("an order in an LMSR event",
                 () -> engine.placeOrder("Menash", 1, 0, OrderSide.BUY, 5, 0.50));
 
-        engine.openEvent("Avrum", 2);
+        engine.openEvent("Avrum", 3);
         refused("buying from an order book event as if it were LMSR",
-                () -> engine.buy("Menash", 2, 0, 10));
+                () -> engine.buy("Menash", 3, 0, 10));
         refused("selling shares that are not held",
-                () -> engine.placeOrder("Menash", 2, 0, OrderSide.SELL, 5, 0.50));
-        engine.placeOrder("Avrum", 2, 0, OrderSide.SELL, 100, 0.50);
+                () -> engine.placeOrder("Menash", 3, 0, OrderSide.SELL, 5, 0.50));
+        engine.placeOrder("Avrum", 3, 0, OrderSide.SELL, 100, 0.50);
         refused("offering the same shares twice",
-                () -> engine.placeOrder("Avrum", 2, 0, OrderSide.SELL, 1, 0.50));
+                () -> engine.placeOrder("Avrum", 3, 0, OrderSide.SELL, 1, 0.50));
         refused("a quantity of zero", () -> engine.buy("Menash", 1, 0, 0));
         refused("closing an event that is not yours", () -> engine.closeEvent("Menash", 1, 0));
+        refused("closing on an option that does not exist", () -> engine.closeEvent("Tikva", 1, 2));
+        refused("opening an event that costs more than the account holds",
+                () -> engine.openEvent("Avrum", 2));
     }
 
     // ------------------------------------------------------------- the files
 
-    private static void courseFiles() {
+    private static void courseFiles() throws Exception {
         section("The files supplied with the course");
-        accepted(COURSE + "small.xml", 2, 3);
-        accepted(COURSE + "multiple.xml", 4, 3);
-        rejected(COURSE + "error-2.xml", "must start with more than 0");
-        rejected(COURSE + "error-3.xml", "no event with that id");
-        rejected(COURSE + "error-3.xml", "has no market maker");
-        rejected("testing_files/EX1/single.xml", "exercise 2 format");
-        rejected("testing_files/EX1/multiple.xml", "exercise 2 format");
+        accepted(COURSE + "small.xml", 1);
+        accepted(COURSE + "multiple.xml", 3);
+        rejected("testing_files/EX2/small.xml", "exercise 2 format");
+        rejected("testing_files/EX2/multiple.xml", "exercise 2 format");
+        rejected("testing_files/EX1/single.xml", "has an <id> element");
+        rejected("testing_files/EX1/multiple.xml", "has an <id> element");
     }
 
-    private static void ownFaultyFiles() {
+    private static void ownFaultyFiles() throws Exception {
         section("Faulty files of our own");
-        rejected(DIR + "bad-two-market-makers.xml", "2 market makers");
-        rejected(DIR + "bad-duplicate-user.xml", "same name as an earlier user");
-        rejected(DIR + "bad-initial-not-divisible.xml", "does not divide into whole pairs");
+        rejected(DIR + "bad-duplicate-name.xml", "same name as an earlier event in this file");
+        rejected(DIR + "bad-has-id.xml", "has an <id> element");
+        rejected(DIR + "bad-one-option.xml", "at least 2");
+        rejected(DIR + "bad-duplicate-option.xml", "twice");
+        rejected(DIR + "bad-allow-mint.xml", "only true or false are allowed");
         rejected(DIR + "bad-many-problems.xml", "commission of 91");
-        rejected(DIR + "bad-many-problems.xml", "already used by the event");
-        rejected(DIR + "bad-many-problems.xml", "missing the liquidity value");
-        rejected(DIR + "bad-many-problems.xml", "must start with more than 0");
-        rejected(DIR + "bad-many-problems.xml", "no event with that id");
+        rejected(DIR + "bad-many-problems.xml", "liquidity value of 0");
+        rejected(DIR + "bad-many-problems.xml", "same name as an earlier event");
+        rejected("extra-test-files/EX3/malformed.xml", "not a valid XML document");
     }
 
     // ------------------------------------------------------------------ tools
 
-    private static GuessMarketEngine load(String path) throws EngineException {
+    /** A system with the given users, each with the given deposit: name, amount, name, amount... */
+    private static GuessMarketEngine users(Object... namesAndDeposits) throws EngineException {
         GuessMarketEngine engine = new GuessMarketEngineImpl();
-        LoadReportDto report = engine.loadFile(path);
-        if (!report.success()) {
-            throw new IllegalStateException("could not load " + path + ": " + report.errors());
+        for (int i = 0; i < namesAndDeposits.length; i += 2) {
+            String name = (String) namesAndDeposits[i];
+            engine.addUser(name);
+            engine.deposit(name, ((Number) namesAndDeposits[i + 1]).doubleValue());
         }
         return engine;
     }
 
-    private static double balance(GuessMarketEngine engine, String userName) throws EngineException {
+    /** A system with the given users, and one file uploaded by one of them. */
+    private static GuessMarketEngine world(String path, String uploader, Object... namesAndDeposits)
+            throws Exception {
+        GuessMarketEngine engine = users(namesAndDeposits);
+        upload(engine, uploader, path);
+        return engine;
+    }
+
+    private static LoadReportDto upload(GuessMarketEngine engine, String uploader, String path) throws Exception {
+        LoadReportDto report = engine.uploadEvents(uploader, open(path));
+        if (!report.success()) {
+            throw new IllegalStateException("could not upload " + path + ": " + report.errors());
+        }
+        return report;
+    }
+
+    /** The contents of a file, read whole, as the server hands over an upload. */
+    private static InputStream open(String path) throws IOException {
+        return new java.io.ByteArrayInputStream(Files.readAllBytes(Path.of(path)));
+    }
+
+    private static double balance(GuessMarketEngine engine, String userName) {
         for (UserSummaryDto user : engine.listUsers()) {
             if (user.name().equals(userName)) {
                 return user.balance();
@@ -468,24 +666,49 @@ public final class Verify {
         throw new IllegalStateException("no user " + userName);
     }
 
-    private static void accepted(String path, int events, int users) {
-        GuessMarketEngine engine = new GuessMarketEngineImpl();
-        LoadReportDto report = engine.loadFile(path);
+    private static boolean blocked(GuessMarketEngine engine, String userName) {
+        for (UserSummaryDto user : engine.listUsers()) {
+            if (user.name().equals(userName)) {
+                return user.blocked();
+            }
+        }
+        throw new IllegalStateException("no user " + userName);
+    }
+
+    /** Every account's ledger must add up to its balance, and end on it. */
+    private static void ledgerMatchesBalances(GuessMarketEngine engine) throws EngineException {
+        for (UserSummaryDto user : engine.listUsers()) {
+            LedgerDto ledger = engine.ledger(user.name(), 0);
+            double sum = 0.0;
+            for (AccountEntryDto entry : ledger.entries()) {
+                sum += entry.amount();
+            }
+            near("the ledger of " + user.name() + " adds up to the balance", sum, user.balance());
+        }
+    }
+
+    private static void accepted(String path, int events) throws Exception {
+        GuessMarketEngine engine = users("Uploader", 0 + 1);
+        LoadReportDto report = engine.uploadEvents("Uploader", open(path));
         if (!report.success()) {
             fail(path + " should load", String.valueOf(report.errors()));
             return;
         }
         equal(path + " holds " + events + " events", (long) report.eventsLoaded(), (long) events);
-        equal(path + " holds " + users + " users", (long) report.usersLoaded(), (long) users);
     }
 
-    private static void rejected(String path, String expectedFragment) {
-        GuessMarketEngine engine = new GuessMarketEngineImpl();
-        LoadReportDto report = engine.loadFile(path);
+    private static void rejected(String path, String expectedFragment) throws Exception {
+        GuessMarketEngine engine = users("Uploader", 1);
+        LoadReportDto report = engine.uploadEvents("Uploader", open(path));
         checks++;
         if (report.success()) {
             failures++;
             System.out.println("  FAIL  " + path + " was accepted, and should not have been.");
+            return;
+        }
+        if (!engine.listEvents().isEmpty()) {
+            failures++;
+            System.out.println("  FAIL  " + path + " was refused, but left events behind.");
             return;
         }
         String all = String.join(" | ", report.errors());
@@ -498,8 +721,12 @@ public final class Verify {
         System.out.println("  ok    " + path + " is refused: \"" + expectedFragment + "\"");
     }
 
+    private static void mentions(String what, LoadReportDto report, String fragment) {
+        equal(what, String.join(" | ", report.errors()).contains(fragment), true);
+    }
+
     private interface Action {
-        void run() throws EngineException;
+        void run() throws Exception;
     }
 
     private static void refused(String what, Action action) {
@@ -510,6 +737,9 @@ public final class Verify {
             System.out.println("  FAIL  " + what + " - was allowed.");
         } catch (EngineException e) {
             System.out.println("  ok    " + what + " -> " + e.getMessage());
+        } catch (Exception e) {
+            failures++;
+            System.out.println("  FAIL  " + what + " - failed with " + e);
         }
     }
 
@@ -549,5 +779,4 @@ public final class Verify {
         System.out.println();
         System.out.println("== " + title);
     }
-
 }
