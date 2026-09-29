@@ -1,71 +1,64 @@
-# Where exercise 2 stands
+# Where exercise 3 stands
 
 **Read this first when picking the work back up.** It says what is finished, what
-is not, how to check that nothing has rotted, and the handful of decisions that
-would otherwise have to be made twice.
+is not, how to check that nothing has rotted, and the decisions that would
+otherwise have to be made twice.
 
-Due **12.9.26**. **Every requirement of the exercise is now implemented** -
-section 2a checks them off one by one against the specification. What is left is
-delivering it: a run through by hand, the readme, the zip, and the merge. The
-plan behind all of it is [EX2_PLAN.md](./EX2_PLAN.md); the exercise itself is
-[Guess Market - v3.pdf](./Guess%20Market%20-%20v3.pdf).
+Due **15.10.26**. The plan behind it is [EX3_PLAN.md](./EX3_PLAN.md); the exercise
+itself is [Guess Market - v3.pdf](./Guess%20Market%20-%20v3.pdf), pages 25-27.
+Exercise 2 is submitted; its code is on `main` as it was handed in.
 
 ---
 
 ## 1. First thing to run
 
 ```
-build.bat        needs the JavaFX 25 SDK; reads JAVAFX_HOME, defaults to C:\Users\dimat\javafx-sdk-25.0.4
-verify.bat       125 engine checks, no JavaFX needed
-verify-ui.bat    the screen checks, against the jars build.bat just made
-dist\run.bat     the application itself
+build.bat              the WAR and the client folder; needs Tomcat 10.1 and the JavaFX 25 SDK
+verify.bat             the engine checks, no server and no JavaFX needed
+                       then copy dist\guess-market.war into Tomcat's webapps and start Tomcat
+verify-client.bat      drives the real client against the running server, saves pictures
+dist\client\run.bat    the client itself
 ```
 
-All of it passed on the last run, from a clean `build` and `dist`:
+`build.bat` reads `TOMCAT_HOME` (default `C:\Users\dimat\apache-tomcat-10.1.60`) and
+`JAVAFX_HOME` (default `C:\Users\dimat\javafx-sdk-25.0.4`). Gson, OkHttp, okio and
+the Kotlin standard library travel in `lib\`. `build.bat server` builds the WAR alone.
+
+Last run, 29.9.26:
 
 | Check | Result |
 |---|---|
-| `verify.bat` | 166 of 166, and the same under a comma-decimal locale |
-| `verify-ui.bat` | every course file through the loading task, 18 on the events screen, 28 on the users screen |
-| Zipped, extracted into a folder whose path has a space, started from `C:\` | window up, **stderr completely clean** |
-| Size of what would be zipped | 11.5 MB as a folder, 8.4 MB zipped |
-| `-Xlint:all` on both modules | no warnings |
-| The engine's independence | no `System.out`, no `Scanner`, no JavaFX, no knowledge of its caller |
+| `verify.bat` | **251 of 251** - both course reference documents to the cent, plus logins, accumulating uploads, deposits, the ledger, and three-option events |
+| `verify-client.bat` | **44 of 44**, on Tomcat 10.1.60 **and** a fresh Tomcat 11.0.26 - login refusal, deposits, trading from both tabs, typing that survives polling, upload through the client's own task, opening and closing as market maker, chat, logout and back in |
+| Every endpoint by hand with `curl`, two sessions | as designed; see §2a |
+| The course's `small.xml` and `multiple.xml`, untouched, uploaded over HTTP | both accepted, added to events already there |
+| The GitHub repository | public (answers 200 without logging in) |
+| `dist\client\run.bat` started from `C:\`, window closed | exits in 0.3 s, **stderr empty** |
+| Class files | version 69 (Java 25), although JDK 26 is first on the PATH |
+| `-Xlint:all` on all four modules | no warnings |
+| Upload leaves anything on the server's disk | nothing - checked in Tomcat's `work` and `temp` |
 
-If a change breaks something, those three scripts say so in about a minute.
+The pictures `verify-client.bat` saves (`build\screens`) are the quickest way to see
+every tab at full size and squeezed to the smallest window.
 
 ---
 
 ## 2. What is finished
 
-**The engine — all of it.** Users and their accounts, market makers, the three
-phases of an event, LMSR, the order book with its matching, its minting and its
-five figures, the v2 file format with every validation the specification asks
-for. It reproduces both worked examples the course supplies to the cent, in both
-commission modes.
+**The engine.** Users log in by name and start with an empty account; deposits;
+a ledger line for every movement of money, with the balance it left; files that
+accumulate, identified by event name; the uploader as market maker; events with
+any number of options from two up, both methods; a user in debt is blocked until a
+deposit covers it. Every public method is synchronized, so the server can call it
+from many threads.
 
-**Packaging — proven, not assumed.** JavaFX travels inside the zip; `run.bat`
-finds it through `%~dp0`; it was rehearsed from an empty folder.
+**The server** (`guess-market.war`). One servlet per action under `/api`, JSON in
+and out, the acting user always taken from the session. Uploads are read in memory
+and never written to disk. Chat lives here too.
 
-**The window.** The top bar loads a file through a `FileChooser` and a JavaFX
-`Task`, with a progress bar, a status line and about 1.8 seconds of deliberate
-delay. A faulty file opens a scrolling list of everything wrong with it and
-changes nothing that was already loaded.
-
-**The events tab.** Every event with its method, status, commission, market maker
-and account balance; three filter rows of toggle buttons; and the details of
-whichever event is chosen — for LMSR the block of command 3 of exercise 1, for an
-order book the two books side by side with LAST, BID, ASK, MID and SPREAD. Both
-end with who is taking part, how much they hold and what it is worth, and with
-the winning option once the event is closed.
-
-**The users tab.** Everybody with their balance and standing; for whoever is
-chosen, every event with what they are to it; their own part in the chosen event
-- their own trades for LMSR, what they hold and what it cost for an order book,
-the commission they paid, and their result once it is over; and underneath, the
-things they can actually do: opening, buying, ordering, closing. A refusal comes
-back in the engine's own words. A blocked user is shown as blocked and offered
-nothing.
+**The client.** A login screen; then Events, Account and Chat tabs as in the ex3
+sketch. It polls every second and redraws only what changed, so selections, scroll
+positions and half-typed orders survive. Closing the window logs out.
 
 ---
 
@@ -73,108 +66,86 @@ nothing.
 
 | The exercise asks for | Where it is |
 |---|---|
-| Order book events, users and accounts, a JFX interface following the sketch | the two tabs, `fx/src/market/fx` |
-| A file chosen **only** through a file chooser | `MainController.onLoadFile` |
-| Only the exercise 2 format; a good file replaces the last one | the loader; checked |
-| Any legal directory, including one with spaces | checked, with a path that has spaces in the folder and in the file |
-| Loading through a `Task`, with a progress bar and a deliberate delay | `LoadFileTask`, four steps, about 1.8 seconds |
-| The validations of exercise 1, plus unique user names, initial cash above zero, market makers pointing at events that exist, exactly one market maker per event | the loader; the course's own `error-2` and `error-3` are refused for exactly these |
-| A faulty file is not loaded, and says in detail why | a scrolling dialog listing every problem at once |
-| Users: name, balance, the events they take part in | the users table and the events beside it |
-| Their part in an event: for LMSR their own trades and the commission they paid; for an order book what they hold of each option, what it cost, and their result once closed | `UserInvolvementPane` |
-| A user may not go below zero; when it happens they are told and blocked; no topping up | `User.pay` blocks; the screen shows it; there is no way to add money |
-| Market makers open, fund, close and collect the commissions | `TradeForm`, and the engine refuses everybody else |
-| Every event, whatever its stage, filtered by method, status and commission method, each with an "all" | the three toggle rows |
-| Per event: name, status, type, commission method and amount, account balance | the events table and the detail heading |
-| LMSR detail: the content of command 3 of exercise 1 | option values, shares, account, commission, history newest first, winner |
-| Order book detail: each option's book with user, quantity and price per share, plus LAST, BID, ASK, MID, SPREAD | `OrderBookPane` |
-| Participants: anybody holding shares **or** with an order waiting, with quantity and value | the participants table; taking part counts from the first order |
-| Three phases, and only the market maker opens and closes | `EventPhase`, and the screen offers nothing it may not do |
-| Opening costs the subsidy or the first pairs, and is refused without the money | checked in both the engine and the screen |
-| An order names a side, a quantity and a price no higher than `d − 0.01`; then it matches, mints or waits | the engine, checked against the course's own simulation |
-| Closing empties the account to the winners, hands the closing commission to the market maker, and returns what is left | checked |
-| Resizing, with scroll panes, and **not** by making the window fixed | both sides scroll; the window is resizable and was laid out at 640×420 |
-| English only, at most two decimals, every list numbered from 1 | `Format`, and a `#` column on every list |
-| Java 25 | compiled and run with it |
-
-What is **not** done is only the delivery: the readme, the zip, and the merge.
+| Client/server over HTTP; clients never talk to each other | `server/`, `client/.../net/ServerApi.java` |
+| Events with more than two options | engine throughout; mint generalized in `OrderBookMethod.mintAgainstOtherOptions` |
+| Tomcat holds the engine and exposes endpoints | `ServerContext` creates it; `servlets/*` |
+| Unique user name, login screen, a taken name is refused and the user may retry | `LoginServlet`, `LoginController` |
+| No passwords, no sign up | a name is all there is |
+| After login, the events screen | the Events tab is first |
+| Any user uploads; files accumulate; uploader becomes MM of all its events | `uploadEvents` in the engine |
+| File chosen on the user's machine and uploaded as in class, no third-party upload library | `FileChooser` + OkHttp multipart; `@MultipartConfig` + `request.getPart` |
+| The file is never saved on the server | no `location`, a threshold above the size limit, `part.delete()` |
+| Ex1 checks, not ex2's; no event name that already exists | `XmlEventsLoader` |
+| A faulty file: the reason reaches the user, nothing is added | `LoadReportDto` with every error, shown in a scrolling dialog |
+| Upload is asynchronous, no artificial delay | `UploadTask`, indeterminate progress |
+| Each user acts only in their own name | the user comes from the session, never from a parameter |
+| Events screen as before, all events of all users | `EventsController` - filters, table, details, trade |
+| User screen: own details; others as name, balance, is-MM | `AccountController`; `/api/users` returns only those |
+| Balance always visible; deposit; every line of the account | header, "Load funds", the ledger table |
+| Pull refresh, at most 2 s | `AppState`, every 1 s |
+| No persistence past the server | everything lives in the `ServletContext` |
+| Resize | every screen in a `ScrollPane`; checked at the minimum size |
+| One WAR with every dependency; client folder with jars and a `.bat`; `localhost:8080` | `build.bat` |
+| Bonus: chat | the Chat tab, `/api/chat` |
 
 ---
 
 ## 3. What is left
 
-Everything the exercise asks for is implemented and checked. What remains is
-handing it in.
-
-### 3.1 Delivering it — about 1.5 hours
-
-- a run through the interface with `small.xml`, `multiple.xml`, `error-2.xml` and `error-3.xml`
-- **the readme, in Word or PDF** - a plain text file loses points. Submitter details, how to run it, what the main classes do, the assumptions in section 5 below, the GitHub link, and any bonus named at the very top
-- the zip: two jars, the `javafx` folder, `run.bat`, the readme - then extract it somewhere empty and run it
-- **merge `docs/spec-v3-ex2` into `main` and push**, because the readme carries a GitHub link and the code has to be there
-
-### 3.2 Bonuses — only if all of the above is done
-
-Charts (+8) stay the cheapest, because every trade and every movement of money is
-already recorded. Skins (+5) and animations (+5) have to ship switched off.
-Creating an event (+10) is the largest and exercise 3 does not need it. A late
-submission voids all of them.
+1. **Look at it with your own eyes**, two clients side by side: `dist\client\run.bat`
+   twice. The checks read labels back, they cannot judge looks.
+2. **The readme, as Word or PDF**: the draft is [EX3_README_SUBMISSION.md](./EX3_README_SUBMISSION.md),
+   complete except for names, ids and emails; export it once those are filled in.
+3. **The zip** (not 7z): `dist\guess-market.war`, the `dist\client` folder, the readme.
+   The exercise 4 zip is `dist\web-client` and its own readme, in its own box.
+   Rehearse on a fresh Tomcat 10.1 from a folder whose path has spaces.
+4. **Exercise 4 (web client) is built and checked** - `web-client/`, 49 of 49 in a
+   headless browser (`node web-client/check/web-check.js`). Left: fill the personal
+   answers in [EX4_README_SUBMISSION.md](./EX4_README_SUBMISSION.md), export it to
+   PDF/Word, and zip `web-client` (without `check/screens`) into its **own** box.
 
 ---
 
 ## 4. Things that would otherwise be learned twice
 
-- **`getValue()` and `getProgress()` on a `Task` may only be touched on the JavaFX thread.** That is why the report is read inside `setOnSucceeded`. Slide 86 of the course deck is right about this and it is easy to forget.
-- **`SplitPane.lookup()` finds nothing without a stage**, because the skin that adds its items as children has not been built. The screen checks walk `getItems()` instead.
-- **Every filter row has an "All" button**, so anything that finds a button by its label has to say which row as well.
-- **A `ScrollPane` has no children without a stage either**, for the same reason as the `SplitPane`: its content is reached through `getContent()`.
-- **Anything a screen reports is wiped by the refresh that follows the action**, unless the label carrying it is re-added in every branch. Closing an event lost the sentence saying it had closed, until the report was moved out of the branches.
-- **`jfxwebkit.dll` is 92 MB of the JavaFX SDK's 107.** `build.bat` copies only the four modules the application loads and drops the web and media natives. Do not "simplify" that back into copying the whole SDK.
-- **`--enable-native-access=javafx.graphics`** in `run.bat` is what stops Java 25 printing four warnings about JavaFX's natives every launch.
-- **The published `GM-EX2-Schema.xsd` is the authority, not the appendix**, which misspells `commission`, `GM-market-maker` and `initial`. The loader accepts both spellings.
+- **JDK 26 is first on the PATH.** Every `javac` has `--release 25`; do not drop it.
+- **The v3 XSD caps `GM-option` at two** (`maxOccurs="2"`), although the spec names
+  multi-option events as a goal. The engine takes any number from two; no course
+  file can carry more. Our own `extra-test-files/EX3/three-options-*.xml` do.
+- **Tomcat must be 10.1 or later** - the code uses `jakarta.servlet`, not `javax.servlet`.
+- **Gson must be 2.10 or later** to read records back; `lib\` has 2.13.2.
+- **OkHttp's threads are not daemons.** `ServerApi.shutdown()` in `stop()` is what
+  lets the client exit at once instead of a minute later.
+- **Lambdas passed to `fetch`/`act` need typed parameters**, or javac infers `Object`.
+- The ex2 screen checks drove single-process screens and were retired; the client
+  check replaces them, and needs the server running.
 
 ---
 
 ## 5. The assumptions that go in the readme
 
-Each of these is a place where the specification allows more than one reading,
-and the choice is already made in code.
-
-1. **The commission goes to the market maker's own account**, in both modes. The order book simulation supplied with the course does exactly this in its ledger, and the engine reproduces its closing balances to the cent.
-2. **Cash moves when an order executes, not when it is placed.** An action costing more than the balance is refused, but two orders that were each affordable on their own can together drive a balance below zero - which is how the blocked state the specification describes becomes reachable at all. A blocked user can do nothing further, and there are no top-ups.
-3. **Shares are reserved when an order is placed**, so nobody can offer the same shares twice or sell shares they do not hold.
-4. **`initial` must divide into whole pairs at the base value `d`**, or the file is refused.
-5. **Exactly two options per event**, as exercise 1 required, even though the schema allows one or two.
-6. **A file in the exercise 1 format is refused** with a message saying so, since this exercise reads the version 2 format.
-7. **A figure with no value is shown as a dash, not as zero** - an empty book has no mid and no spread, and an untraded option has no last price.
-8. **Taking part counts from the first order**, executed or not, which is what the specification says and what the participants table shows.
-9. **Closing an LMSR event returns whatever is left in its account to the market maker**; an order book event lands on exactly 0 by itself, because every pair of shares was paid for in full when it was created.
+1. A name is refused while a live session holds it. After logout, closing the
+   client, or two minutes without polling, the name logs back in to the **same
+   account** - otherwise one closed window would lock a market maker out for good.
+2. A new user starts with a balance of 0.
+3. User and event names are unique **ignoring case and surrounding spaces**.
+4. A deposit that brings the balance back to zero or above **unblocks** the user.
+5. Deposits are positive amounts in whole cents.
+6. An event needs at least two options, with distinct names.
+7. Files of the exercise 1 and 2 formats are refused with a message saying why
+   (they carry an event `id` or `GM-users`).
+8. Only exercise 1's checks, as the spec says, plus what an order book needs to work at all
+   (d > 0, initial ≥ 0, allow-mint true or false). An `initial` that does not divide by `d`
+   is **accepted**: opening buys the whole sets it pays for (100 at d = 3 buys 33 sets for 99).
+9. Minting with N options needs a bid on **every** option, the prices together at
+   least `d`; resting orders keep their prices, the incoming one pays the rest.
+   With two options this is exactly appendix B.
+10. The API takes option numbers zero based; the screens show everything one based.
+11. The client polls every second.
 
 ---
 
-## 6. The repository as it stands
+## 6. Still worth asking on the forum
 
-Work happens on the branch **`docs/spec-v3-ex2`**. `main` has everything up to
-the handover commit, merged through pull request #1; the three commits that
-carry the users area, the conformance fixes and the sanity pass are **not on
-`main` and not pushed yet**, so the GitHub link in the readme will not show them
-until they are:
-
-| | |
-|---|---|
-| `7cd984a` | spec v3 and the exercise 2 material |
-| `e1fe1e3` | the engine: users, market makers, the order book |
-| `98baa95` | tidying, and the console module retired from the build |
-| `14d2566` | the plan for the JavaFX module |
-| `2056bd8` | the window, and JavaFX packaged to run from a clean folder |
-| `b8faf69` | the events area, its filters, and the details of an event |
-
-The console of exercise 1 is in `ui/` and is no longer built - the engine API
-now names the user who is acting, and the console was written for a single
-implicit user. Exercise 1 was submitted and graded on the jars it shipped with.
-
-## 7. Still worth asking for
-
-`Packaging Common Pitfalls.pptx` from the course materials. What is here works
-and has been rehearsed, but that deck is where the grader's expectations about
-the shape of the zip live, and matching it now is cheaper than on the 12th.
+- The mint rule for more than two options (§5.9), since no course file can test it.
+- Whether a name may log back in after its session ends (§5.1).

@@ -1,68 +1,72 @@
 package market.engine.api;
 
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
-import market.engine.dto.CloseResultDto;
-import market.engine.dto.EventStateDto;
-import market.engine.dto.EventSummaryDto;
-import market.engine.dto.LoadReportDto;
-import market.engine.dto.OrderResultDto;
-import market.engine.dto.PurchaseResultDto;
-import market.engine.dto.TradeDto;
-import market.engine.dto.UserDetailsDto;
-import market.engine.dto.UserEventDto;
-import market.engine.dto.UserSummaryDto;
+import market.dto.AccountEntryDto;
+import market.dto.CloseResultDto;
+import market.dto.EventStateDto;
+import market.dto.EventSummaryDto;
+import market.dto.LedgerDto;
+import market.dto.LoadReportDto;
+import market.dto.OrderResultDto;
+import market.dto.OrderSide;
+import market.dto.PurchaseResultDto;
+import market.dto.TradeDto;
+import market.dto.UserDetailsDto;
+import market.dto.UserEventDto;
+import market.dto.UserSummaryDto;
+import market.engine.model.AccountEntry;
 import market.engine.model.Event;
 import market.engine.model.OrderBookMethod;
 import market.engine.model.OrderOutcome;
-import market.engine.model.OrderSide;
 import market.engine.model.Participation;
 import market.engine.model.Trade;
 import market.engine.model.User;
 import market.engine.xml.LoadOutcome;
 import market.engine.xml.XmlEventsLoader;
 
-/** The one and only implementation of the engine. It holds what is currently loaded. */
+/**
+ * The one and only implementation of the engine. It holds every user and every
+ * event of the system, for as long as it lives.
+ * <p>
+ * Every public method is synchronized on the engine: a server calls it from many
+ * threads at once, and one lock around the whole state is the simplest thing that
+ * is obviously correct. Each answer is built under that lock, so it is always a
+ * consistent picture of one moment, and it is immutable, so it can be handed out
+ * afterwards without one.
+ */
 public final class GuessMarketEngineImpl implements GuessMarketEngine {
 
     private final XmlEventsLoader loader = new XmlEventsLoader();
     private final List<Event> events = new ArrayList<>();
     private final List<User> users = new ArrayList<>();
-    private String loadedFilePath;
-
-    @Override
-    public LoadReportDto loadFile(String path) {
-        LoadOutcome outcome = loader.load(path);
-        if (!outcome.isValid()) {
-            return LoadReportDto.failure(outcome.errors());
-        }
-        // A valid file replaces everything. Events come out of it not started:
-        // it is their market maker who funds them, when they open them.
-        events.clear();
-        users.clear();
-        events.addAll(outcome.events());
-        users.addAll(outcome.users());
-        loadedFilePath = path.trim();
-        return LoadReportDto.success(events.size(), users.size());
-    }
-
-    @Override
-    public boolean isFileLoaded() {
-        return loadedFilePath != null;
-    }
-
-    @Override
-    public String loadedFilePath() {
-        return loadedFilePath;
-    }
 
     // -------------------------------------------------------------------- users
 
     @Override
-    public List<UserSummaryDto> listUsers() throws EngineException {
-        requireLoadedFile();
+    public synchronized void addUser(String userName) throws EngineException {
+        String name = userName == null ? "" : userName.trim();
+        if (name.isEmpty()) {
+            throw new EngineException("Enter a name to log in with.");
+        }
+        if (userExists(name)) {
+            throw new EngineException("The name \"" + name + "\" is already taken. Choose another one.");
+        }
+        users.add(new User(name));
+    }
+
+    @Override
+    public synchronized boolean userExists(String userName) {
+        return userName != null && lookUpUser(userName) != null;
+    }
+
+    @Override
+    public synchronized List<UserSummaryDto> listUsers() {
         List<UserSummaryDto> summaries = new ArrayList<>();
         for (User user : users) {
             summaries.add(EventMapper.userSummary(user, isMarketMakerOfAnything(user)));
@@ -71,7 +75,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     }
 
     @Override
-    public UserDetailsDto userDetails(String userName) throws EngineException {
+    public synchronized UserDetailsDto userDetails(String userName) throws EngineException {
         User user = findUser(userName);
         List<UserEventDto> involvements = new ArrayList<>();
         for (Event event : events) {
@@ -97,11 +101,63 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
         return new UserDetailsDto(user.name(), user.balance(), user.isBlocked(), involvements);
     }
 
-    // ------------------------------------------------------------------- events
+    @Override
+    public synchronized UserSummaryDto deposit(String userName, double amount) throws EngineException {
+        User user = findUser(userName);
+        if (Double.isNaN(amount) || Double.isInfinite(amount) || amount <= 0) {
+            throw new EngineException("A deposit must be a positive amount of money.");
+        }
+        double rounded = Math.round(amount * 100.0) / 100.0;
+        if (Math.abs(rounded - amount) > 1e-9) {
+            throw new EngineException("A deposit is made in whole cents, so " + amount + " cannot be used.");
+        }
+        user.deposit(rounded);
+        return EventMapper.userSummary(user, isMarketMakerOfAnything(user));
+    }
 
     @Override
-    public List<EventSummaryDto> listEvents() throws EngineException {
-        requireLoadedFile();
+    public synchronized LedgerDto ledger(String userName, int afterSerial) throws EngineException {
+        User user = findUser(userName);
+        List<AccountEntryDto> entries = new ArrayList<>();
+        for (AccountEntry entry : user.ledgerAfter(afterSerial)) {
+            entries.add(EventMapper.accountEntry(entry));
+        }
+        return new LedgerDto(entries, user.lastLedgerSerial(), user.balance());
+    }
+
+    // ------------------------------------------------------------------- events
+
+    /**
+     * Files now accumulate: the events of a sound file join those already in the
+     * system, numbered on from the last one, and the user who uploaded it becomes
+     * their market maker. They arrive not started - it is their market maker who
+     * funds them, when they open them.
+     */
+    @Override
+    public synchronized LoadReportDto uploadEvents(String uploaderName, InputStream contents)
+            throws EngineException {
+        User uploader = findUser(uploaderName);
+        Set<String> takenNames = new HashSet<>();
+        for (Event event : events) {
+            takenNames.add(event.name().toLowerCase(Locale.US));
+        }
+
+        LoadOutcome outcome = loader.load(contents, takenNames);
+        if (!outcome.isValid()) {
+            return LoadReportDto.failure(outcome.errors());
+        }
+        List<String> names = new ArrayList<>();
+        for (Event event : outcome.events()) {
+            event.assignId(events.size() + 1);
+            event.assignMarketMaker(uploader);
+            events.add(event);
+            names.add(event.name());
+        }
+        return LoadReportDto.success(names);
+    }
+
+    @Override
+    public synchronized List<EventSummaryDto> listEvents() {
         List<EventSummaryDto> summaries = new ArrayList<>();
         for (Event event : events) {
             summaries.add(EventMapper.summary(event));
@@ -110,12 +166,12 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     }
 
     @Override
-    public EventStateDto eventState(int eventId) throws EngineException {
+    public synchronized EventStateDto eventState(int eventId) throws EngineException {
         return EventMapper.state(findEvent(eventId));
     }
 
     @Override
-    public EventStateDto openEvent(String userName, int eventId) throws EngineException {
+    public synchronized EventStateDto openEvent(String userName, int eventId) throws EngineException {
         User user = findUser(userName);
         requireNotBlocked(user);
         Event event = findEvent(eventId);
@@ -138,7 +194,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     }
 
     @Override
-    public CloseResultDto closeEvent(String userName, int eventId, int winningOptionIndex) throws EngineException {
+    public synchronized CloseResultDto closeEvent(String userName, int eventId, int winningOptionIndex) throws EngineException {
         User user = findUser(userName);
         requireNotBlocked(user);
         Event event = findEvent(eventId);
@@ -153,7 +209,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     // ------------------------------------------------------------------ trading
 
     @Override
-    public PurchaseResultDto buy(String userName, int eventId, int optionIndex, long quantity)
+    public synchronized PurchaseResultDto buy(String userName, int eventId, int optionIndex, long quantity)
             throws EngineException {
         User user = findUser(userName);
         requireNotBlocked(user);
@@ -180,7 +236,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     }
 
     @Override
-    public OrderResultDto placeOrder(String userName, int eventId, int optionIndex,
+    public synchronized OrderResultDto placeOrder(String userName, int eventId, int optionIndex,
                                      OrderSide side, long quantity, double pricePerShare)
             throws EngineException {
         User user = findUser(userName);
@@ -226,32 +282,32 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     }
 
     private User findUser(String userName) throws EngineException {
-        requireLoadedFile();
-        if (userName != null) {
-            for (User user : users) {
-                if (user.name().equalsIgnoreCase(userName.trim())) {
-                    return user;
-                }
+        User user = userName == null ? null : lookUpUser(userName);
+        if (user == null) {
+            throw new EngineException("There is no user named \"" + (userName == null ? "" : userName.trim())
+                    + "\" in the system.");
+        }
+        return user;
+    }
+
+    /** Names are compared without regard to case or to surrounding spaces. */
+    private User lookUpUser(String userName) {
+        String wanted = userName.trim();
+        for (User user : users) {
+            if (user.name().equalsIgnoreCase(wanted)) {
+                return user;
             }
         }
-        throw new EngineException("There is no user named \"" + (userName == null ? "" : userName.trim())
-                + "\" in the system.");
+        return null;
     }
 
     private Event findEvent(int eventId) throws EngineException {
-        requireLoadedFile();
         for (Event event : events) {
             if (event.id() == eventId) {
                 return event;
             }
         }
-        throw new EngineException("There is no event with the id " + eventId + " in the system.");
-    }
-
-    private void requireLoadedFile() throws EngineException {
-        if (!isFileLoaded()) {
-            throw new EngineException("No events file is loaded yet. Load a file first.");
-        }
+        throw new EngineException("There is no event with the number " + eventId + " in the system.");
     }
 
     /**
@@ -261,7 +317,7 @@ public final class GuessMarketEngineImpl implements GuessMarketEngine {
     private void requireNotBlocked(User user) throws EngineException {
         if (user.isBlocked()) {
             throw new EngineException(String.format(Locale.US,
-                    "%s owes %.2f and is blocked, and cannot take part in the system any more.",
+                    "%s owes %.2f and is blocked until a deposit covers the debt.",
                     user.name(), -user.balance()));
         }
     }

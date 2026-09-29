@@ -1,14 +1,17 @@
 package market.engine.model;
 
+import market.dto.OrderSide;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * A single binary event: its details, its own account, the users taking part in
- * it, and the method by which it is traded.
+ * A single event: its details, its options (two or more), its own account, the
+ * users taking part in it, and the method by which it is traded.
  * <p>
  * Every movement of money in the system passes through here, so that the rules
  * live in one place: the market maker funds the event when it is opened, the
@@ -17,7 +20,7 @@ import java.util.Map;
  */
 public final class Event {
 
-    private final int id;
+    private int id;
     private final String name;
     private final String description;
     private final int commissionPercent;
@@ -34,14 +37,12 @@ public final class Event {
     private int winningOptionIndex = -1;
     private double commissionCollected;
 
-    public Event(int id,
-                 String name,
+    public Event(String name,
                  String description,
                  int commissionPercent,
                  CommissionType commissionType,
                  List<EventOption> options,
                  TradingMethod method) {
-        this.id = id;
         this.name = name;
         this.description = description;
         this.commissionPercent = commissionPercent;
@@ -52,7 +53,15 @@ public final class Event {
 
     // ---------------------------------------------------------------- lifecycle
 
-    /** Told by the loader which user carries this event; every file names exactly one. */
+    /**
+     * Gives the event its number in the system. Files no longer number their
+     * events, so the system does, in the order they arrive.
+     */
+    public void assignId(int id) {
+        this.id = id;
+    }
+
+    /** The user who uploaded the file this event came in is the one who carries it. */
     public void assignMarketMaker(User user) {
         this.marketMaker = user;
     }
@@ -101,7 +110,11 @@ public final class Event {
                     : 0.0;
 
             account.withdraw(payout);
-            participation.user().receive(payout - commission);
+            User winner = participation.user();
+            winner.receive(payout, AccountEntryKind.PAYOUT, String.format(Locale.US,
+                    "%d winning shares of \"%s\" in \"%s\"", won, options.get(winningIndex).name(), name));
+            winner.pay(commission, AccountEntryKind.COMMISSION_PAID,
+                    "Commission on the payout of \"" + name + "\"");
             participation.addPayout(payout - commission);
             participation.addCommissionPaid(commission);
             payCommissionToMarketMaker(commission);
@@ -115,10 +128,11 @@ public final class Event {
         double remainder = account.balance();
         if (remainder != 0.0) {
             account.withdraw(remainder);
+            String description = "What was left in the account of \"" + name + "\" when it closed";
             if (remainder > 0) {
-                marketMaker.receive(remainder);
+                marketMaker.receive(remainder, AccountEntryKind.EVENT_REMAINDER, description);
             } else {
-                marketMaker.pay(-remainder);
+                marketMaker.pay(-remainder, AccountEntryKind.EVENT_REMAINDER, description);
             }
         }
     }
@@ -140,8 +154,10 @@ public final class Event {
         double amount = quantity * price;
         double commission = commissionOnPurchase(amount);
 
-        buyer.pay(amount + commission);
-        seller.receive(amount);
+        String what = describe(quantity, optionIndex, price);
+        buyer.pay(amount, AccountEntryKind.PURCHASE, "Bought " + what + " from " + seller.name());
+        buyer.pay(commission, AccountEntryKind.COMMISSION_PAID, "Commission on buying " + what);
+        seller.receive(amount, AccountEntryKind.SALE, "Sold " + what + " to " + buyer.name());
         payCommissionToMarketMaker(commission);
 
         Participation buyerSide = participationOf(buyer);
@@ -150,7 +166,7 @@ public final class Event {
         buyerSide.addCommissionPaid(commission);
         sellerSide.removeShares(optionIndex, quantity, amount);
 
-        Trade trade = Trade.bookTrade(nextTradeSerial(), buyer.name(), seller.name(),
+        Trade trade = Trade.bookTrade(nextTradeSerial(), buyer.name(),
                 options.get(optionIndex).name(), quantity, price, commission);
         record(trade, buyerSide);
         sellerSide.record(trade);
@@ -161,11 +177,13 @@ public final class Event {
      * Creates shares that did not exist before. The money goes into the account of
      * the event, which is what will pay them out when the event is decided.
      */
-    Trade mintShares(User buyer, int optionIndex, long quantity, double price, User counterparty) {
+    Trade mintShares(User buyer, int optionIndex, long quantity, double price) {
         double amount = quantity * price;
         double commission = commissionOnPurchase(amount);
 
-        buyer.pay(amount + commission);
+        String what = describe(quantity, optionIndex, price);
+        buyer.pay(amount, AccountEntryKind.MINT, "Minted " + what);
+        buyer.pay(commission, AccountEntryKind.COMMISSION_PAID, "Commission on minting " + what);
         creditAccount(amount);
         payCommissionToMarketMaker(commission);
 
@@ -175,7 +193,6 @@ public final class Event {
         participation.addCommissionPaid(commission);
 
         Trade trade = Trade.mint(nextTradeSerial(), TradeKind.MINT, buyer.name(),
-                counterparty == null ? null : counterparty.name(),
                 options.get(optionIndex).name(), quantity, price, commission);
         record(trade, participation);
         return trade;
@@ -204,8 +221,14 @@ public final class Event {
         if (amount == 0.0) {
             return;
         }
-        marketMaker.receive(amount);
+        marketMaker.receive(amount, AccountEntryKind.COMMISSION_RECEIVED, "Commission collected in \"" + name + "\"");
         commissionCollected += amount;
+    }
+
+    /** How a line of the ledger names a number of shares of one option at a price. */
+    String describe(long quantity, int optionIndex, double price) {
+        return String.format(Locale.US, "%d \"%s\" in \"%s\" at %.2f",
+                quantity, options.get(optionIndex).name(), name, price);
     }
 
     Participation participationOf(User user) {
@@ -333,9 +356,5 @@ public final class Event {
 
     public EventOption winningOption() {
         return winningOptionIndex < 0 ? null : options.get(winningOptionIndex);
-    }
-
-    public int winningOptionIndex() {
-        return winningOptionIndex;
     }
 }

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
+
+<!-- The account tab, as the sketch lays it out: loading a file along the top;
+     everybody in the system and the user's own account on the left; the user's
+     events and the one chosen, with what can be done in it, on the right. -->
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="market.fx.screens.AccountController">
+
+    <top>
+        <VBox spacing="4.0">
+            <padding>
+                <Insets top="8.0" right="10.0" bottom="6.0" left="10.0"/>
+            </padding>
+            <HBox spacing="10.0" alignment="CENTER_LEFT">
+                <Button fx:id="loadFileButton" text="Load file..." onAction="#onLoadFile"/>
+                <Label fx:id="filePathLabel" text="No file uploaded yet." maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+                <ProgressIndicator fx:id="uploadProgress" visible="false" managed="false"
+                                   prefWidth="22.0" prefHeight="22.0"/>
+            </HBox>
+            <Label fx:id="uploadStatus" text="" wrapText="true"/>
+        </VBox>
+    </top>
+
+    <center>
+        <SplitPane dividerPositions="0.34">
+            <items>
+                <ScrollPane fitToWidth="true" fitToHeight="true" minWidth="220.0">
+                    <content>
+                        <VBox spacing="8.0">
+                            <padding>
+                                <Insets top="6.0" right="10.0" bottom="10.0" left="10.0"/>
+                            </padding>
+                            <Label fx:id="usersHeading" text="Everybody in the system"/>
+                            <TableView fx:id="usersTable" prefHeight="200.0" minHeight="100.0" VBox.vgrow="SOMETIMES"/>
+
+                            <Separator/>
+                            <Label fx:id="accountHeading" text="Your account"/>
+                            <Label fx:id="balanceLabel" text=""/>
+                            <FlowPane hgap="8.0" vgap="6.0" alignment="CENTER_LEFT">
+                                <TextField fx:id="depositField" promptText="amount" prefWidth="100.0"
+                                           onAction="#onDeposit"/>
+                                <Button fx:id="depositButton" text="Load funds" onAction="#onDeposit"/>
+                            </FlowPane>
+                            <Label fx:id="depositStatus" text="" wrapText="true"/>
+                            <Label text="Every movement in your account, newest first"/>
+                            <TableView fx:id="ledgerTable" prefHeight="240.0" minHeight="110.0" VBox.vgrow="ALWAYS"/>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+
+                <ScrollPane fx:id="detailScroll" fitToWidth="true" minWidth="300.0">
+                    <content>
+                        <VBox fx:id="detailBox" spacing="8.0">
+                            <padding>
+                                <Insets top="6.0" right="10.0" bottom="12.0" left="10.0"/>
+                            </padding>
+                            <Label fx:id="eventsHeading" text="Your events - taking part, or market maker"/>
+                            <TableView fx:id="myEventsTable" prefHeight="170.0" minHeight="90.0"/>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+            </items>
+        </SplitPane>
+    </center>
+
+</BorderPane>

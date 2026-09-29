@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Guess-Market>
+	<GM-events>
+		<GM-event name="Three colours, LMSR">
+			<description>An LMSR event with three options.</description>
+			<commission type="on-purchase">0</commission>
+			<GM-options>
+				<GM-option>Red</GM-option>
+				<GM-option>Green</GM-option>
+				<GM-option>Blue</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR><b>100</b></GM-LMSR>
+			</GM-method>
+		</GM-event>
+	</GM-events>
+</Guess-Market>

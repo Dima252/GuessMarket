@@ -1,0 +1,13 @@
+{
+  "name": "guess-market-web-client",
+  "version": "1.0.0",
+  "description": "A web client for the Guess Market server of exercise 3.",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

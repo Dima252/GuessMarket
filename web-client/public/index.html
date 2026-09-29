@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guess Market</title>
+    <link rel="stylesheet" href="app.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- The login screen: a name, and nothing else. -->
+<main id="login-view" class="login" hidden>
+    <form id="login-form" class="login-card" autocomplete="off">
+        <h1>Guess Market</h1>
+        <p>Log in with a name of your own. There is no password: a new name opens a new account.</p>
+        <div class="row">
+            <input id="login-name" type="text" placeholder="your name" maxlength="60" required>
+            <button id="login-button" type="submit" class="primary">Log in</button>
+        </div>
+        <p id="login-message" class="message" role="status"></p>
+    </form>
+</main>
+
+<!-- Everything after logging in. -->
+<div id="main-view" class="app" hidden>
+    <header class="top-bar">
+        <span class="brand">Guess Market</span>
+        <span id="user-label"></span>
+        <span id="balance-label" class="balance"></span>
+        <span id="connection-label" class="problem" role="status"></span>
+        <span class="spacer"></span>
+        <button id="logout-button" type="button">Log out</button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab" data-tab="events" aria-selected="true">Events</button>
+        <button type="button" role="tab" class="tab" data-tab="account" aria-selected="false">Account</button>
+    </nav>
+
+    <!-- The events tab: every event, filtered three ways, and the chosen one with what can be done in it. -->
+    <section id="events-tab" class="split" role="tabpanel">
+        <div class="pane">
+            <div id="filters" class="filters"></div>
+            <div class="table-wrap tall"><table id="events-table"></table></div>
+            <p id="events-count" class="muted"></p>
+        </div>
+        <div class="pane detail">
+            <div id="events-detail"></div>
+            <div id="events-trade"></div>
+        </div>
+    </section>
+
+    <!-- The account tab: everybody, the user's own account, and the user's own events. -->
+    <section id="account-tab" class="split" role="tabpanel" hidden>
+        <div class="pane">
+            <h2>Everybody in the system</h2>
+            <div class="table-wrap"><table id="users-table"></table></div>
+
+            <h2>Your account</h2>
+            <p id="account-balance"></p>
+            <form id="deposit-form" class="row" autocomplete="off">
+                <input id="deposit-amount" type="text" inputmode="decimal" placeholder="amount">
+                <button id="deposit-button" type="submit">Load funds</button>
+            </form>
+            <p id="deposit-message" class="message" role="status"></p>
+            <h3>Every movement in your account, newest first</h3>
+            <div class="table-wrap tall"><table id="ledger-table"></table></div>
+        </div>
+        <div class="pane detail">
+            <h2>Your events - taking part, or market maker</h2>
+            <p class="muted">Uploading event files is done from the desktop client.</p>
+            <div class="table-wrap"><table id="my-events-table"></table></div>
+            <div id="account-detail"></div>
+            <div id="account-involvement"></div>
+            <div id="account-trade"></div>
+        </div>
+    </section>
+</div>
+
+</body>
+</html>

@@ -1,208 +1,111 @@
 # Guess Market
 
-A prediction market system written for the Java course project. Events with two
-possible outcomes are traded with the LMSR method: a participant buys shares of
-the outcome he believes in, the price of every outcome moves with the demand,
-and when the event is closed the winners are paid out of the account of the
-event.
+A prediction market written for the Java course project. Users bet on the outcome
+of events by buying shares of the option they believe in; when an event is closed,
+each winning share pays out. Two trading methods: **LMSR**, where users buy from
+the event itself at a price that follows demand, and an **order book**, where users
+trade with each other and new share sets are minted when buyers together cover
+their base value.
 
-**Exercise 1** was submitted: the engine and a console interface driving it.
-
-**Exercise 2** is under way. The engine now knows about users and their accounts,
-about the market maker who funds an event and collects its commissions, about the
-three stages of an event's life, and about a second way of trading it: an order
-book, where users trade with each other and new shares are minted when two buyers
-together cover the base value of a pair. What is left is the JavaFX application in
-front of it — see `docs/EX2_PLAN.md`.
-
-## Remains to be done (Shalev)
-
-The code is finished. Every requirement of exercise 2 is implemented, and the
-checks all pass — 144 on the engine, 46 driving the screens. Three things are
-left, and none of them is code.
-
-**Start here.** Open a terminal in this folder and run:
-
-```
-build.bat
-dist\run.bat
-```
-
-`build.bat` needs the JavaFX 25 SDK. It looks at `JAVAFX_HOME` and falls back to
-`C:\Users\dimat\javafx-sdk-25.0.4`; if it is somewhere else on your machine, set
-that variable first. If the SDK is missing the build stops and says so.
-
-### 1. Look at it with your own eyes — 15 minutes
-
-Everything below has been driven automatically, but nobody has *seen* it. The
-checks can press a button and read a label back; they cannot tell whether two
-columns overlap. Please run through this and note anything that looks wrong:
-
-1. **Load a file.** `Load file...` → `testing_files\EX2\multiple.xml`. The progress
-   bar should move for about two seconds and the path should appear at the top.
-2. **Events tab.** Try each of the three filter rows — method, status, commission.
-   Click an LMSR event (*Mujtaba is Dead*) and an order book one (*World Cap
-   Winner*): the order book shows two books side by side. **Do they fit? Does
-   anything overlap or get cut off?**
-3. **Users tab.** Choose *Tikva*, choose *Mujtaba is Dead*, press **Open the
-   event** — her balance should drop by 69.31. Then choose *Menash*, the same
-   event, type 10 shares and press **Buy**. Check the numbers read sensibly and
-   that his own trade appears under "What Menash has in this event".
-4. **Make the window small.** Drag it down to roughly 640 by 420, which is the
-   smallest it allows. Everything should still be reachable by scrolling. This is
-   tested at the grader, and it is the part I am least able to check for you.
-5. **Load a bad file.** `testing_files\EX2\error-2.xml` should be refused with
-   **exactly one** problem — the user starting with 0 in the account — and
-   whatever was loaded before should still be there afterwards.
-
-### 2. Write the readme — 45 minutes
-
-This is the biggest remaining piece.
-
-- **It must be Word or PDF.** A plain `.txt` readme loses marks by itself.
-- It has to contain: your name, ID and an email that is actually read; the same
-  for me; how to run the program; a short description of what the main classes
-  do; **a link to this repository on GitHub**; and the assumptions taken.
-- **The assumptions are already written out** in [docs/STATUS.md](docs/STATUS.md),
-  section 5 — nine of them, each a place where the exercise allows more than one
-  reading and we had to choose. Copy them across.
-- Section 2a of the same file maps every requirement of the exercise to where it
-  is answered, if you want to check nothing was missed.
-- No bonus was implemented, so nothing goes at the top of the readme.
-
-### 3. Make the zip — 10 minutes
-
-1. Run `build.bat` once more so `dist` is fresh.
-2. Zip **the contents of `dist`** — `guess-market-engine.jar`,
-   `guess-market-fx.jar`, the `javafx` folder and `run.bat` — plus the readme.
-   About 8.4 MB.
-3. **Rehearse it**: extract the zip into an empty folder somewhere else and run
-   `run.bat` from there. The window has to come up with nothing printed in red.
-   This exact rehearsal has been done from a folder whose path contains a space
-   and from a different working directory, so it should just work — but do it
-   once yourself, because a submission the grader cannot start is a level 0, and
-   a level 0 resubmission starts from 90 whatever the fix turns out to be.
-
-Do not rebuild the `javafx` folder by hand. `build.bat` copies exactly the four
-modules the program loads and leaves out the web and media ones, which is the
-difference between a zip of 8 MB and one of 60.
-
----
+- **Exercise 1** - engine and console. Submitted.
+- **Exercise 2** - JavaFX, users, market makers, order books. Submitted; its code is on `main`.
+- **Exercise 3** - client/server: the engine runs inside Tomcat, and JavaFX clients
+  log in, upload files, trade and chat through it. **In progress** - see
+  [docs/STATUS.md](docs/STATUS.md), which is the page to read first.
+- **Exercise 4 (bonus)** - a web client for the same server, in `web-client/`:
+  `web-client
+un.bat`, then http://localhost:3000/. Its submission readme is
+  [docs/EX4_README_SUBMISSION.md](docs/EX4_README_SUBMISSION.md).
 
 ## Requirements
 
-**JDK 25**, and nothing else. The project has no dependencies and needs no build
-tool: everything is compiled with plain `javac`.
+- JDK 25 or later on the PATH (everything is compiled for Java 25).
+- Tomcat 10.1 or later, for running the server and for `servlet-api.jar` at build
+  time. Set `TOMCAT_HOME`, or it defaults to `C:\Users\dimat\apache-tomcat-10.1.60`.
+- The JavaFX 25 SDK for building the client. Set `JAVAFX_HOME`, or it defaults to
+  `C:\Users\dimat\javafx-sdk-25.0.4`.
+- Gson, OkHttp, okio and kotlin-stdlib are in `lib\`.
+
+## Building, running and checking
 
 ```
-java -version
+build.bat                  dist\guess-market.war and dist\client\
+verify.bat                 the engine checks - no server, no JavaFX
 ```
 
-## Building and checking
+Then copy `dist\guess-market.war` into Tomcat's `webapps` folder and start Tomcat
+(`bin\startup.bat`). The server answers at `http://localhost:8080/guess-market/api/`.
 
 ```
-build.bat        compiles both modules and fills dist with what is submitted
-verify.bat       125 checks on the engine, no JavaFX needed
-verify-ui.bat    the screen checks, against the jars build.bat produced
-dist\run.bat     starts the application
+dist\client\run.bat        a client; start two to trade between them
+verify-client.bat          drives the real client against the running server,
+                           and saves pictures of every screen into build\screens
 ```
-
-`build.bat` needs the **JavaFX 25 SDK**. It reads `JAVAFX_HOME` and falls back to
-`C:\Users\dimat\javafx-sdk-25.0.4`; if the SDK is not there it stops and says so.
-Into `dist` it puts the two jars, `run.bat`, and the part of the JavaFX runtime
-the application actually loads — `base`, `graphics`, `controls`, `fxml` and their
-native libraries, without the web and media ones. That is the difference between
-a folder of 11 MB and one of 107 MB, and `jfxwebkit.dll` alone is 92 of them.
-
-`verify.bat` reproduces the two worked examples the course supplies — the LMSR
-example of appendix A and the order book simulation, in both of its commission
-modes — and checks every rule that refuses a request. `verify-ui.bat` drives the
-screens without a mouse: the loading task under a real JavaFX runtime, and the
-events screen through its filters and both kinds of event detail. Everything has
-to pass before anything is submitted.
-
-Both folders, `build` and `dist`, are build output and are not kept in the
-repository.
 
 ## Layout
 
-| Path | What it holds |
+| Folder | Becomes | What it is |
+|---|---|---|
+| `shared/` | `guess-market-shared.jar` | the DTO records both sides exchange as JSON, and `OrderSide` |
+| `engine/` | `guess-market-engine.jar` | the market itself: passive, thread safe, knows nothing of HTTP |
+| `server/` | `guess-market.war` | servlets, sessions, the chat; the engine lives in its `ServletContext` |
+| `client/` | `guess-market-client.jar` | the JavaFX client, grown from the exercise 2 screens |
+| `web-client/` | - | exercise 4: the web client - plain HTML/CSS/JS and a tiny Node server, no packages |
+| `verification/` | - | `Verify` (engine) and `ClientCheck` (client against server) |
+
+### The engine
+
+`GuessMarketEngine` is the whole of it as seen from outside, and every answer is an
+immutable record from `shared/`. The model is `Event` (options, account, the users
+taking part) with a `TradingMethod` - `LmsrMethod` or `OrderBookMethod` - and
+`User`, whose every movement of money leaves an `AccountEntry` in its ledger.
+`XmlEventsLoader` reads the v3 format from a stream.
+
+### The server
+
+Every endpoint is a small `ApiServlet`: it takes the user from the session, reads
+its parameters, calls the engine, and answers JSON - the result, or an `ErrorDto`
+with the engine's own message.
+
+| Endpoint | Does |
 |---|---|
-| `engine/src` | The engine module, which becomes `guess-market-engine.jar`. It is passive: it answers requests, prints nothing, and knows nothing about who is calling it. |
-| `fx/src` | The JavaFX module, which becomes `guess-market-fx.jar` and holds `main`. The screens are FXML with controllers; what changes shape with the event — the order books, the participants — is built in code. |
-| `fx/run.bat`, `fx/manifest.txt` | The launcher copied into `dist`, and the manifest naming `market.fx.Launcher`. |
-| `ui/` | The console module of exercise 1, with the manifest and launcher it shipped with. Kept as a record and no longer built — see `ui/README.md`. |
-| `verification/` | The checks: `Verify.java` for the engine, and two more that drive the screens. |
-| `build.bat`, `verify.bat`, `verify-ui.bat` | Build, check the engine, check the screens. |
-| `testing_files/EX1/`, `testing_files/EX2/` | The files supplied with the course, one folder per exercise: the schema, the sample and faulty event files, and the simulation that goes with each. |
-| `extra-test-files/EX1/`, `extra-test-files/EX2/` | Files written for testing this program, split the same way. |
-| `docs/` | The exercise itself, the plans it is built from, and the readme submitted with exercise 1. |
+| `POST login` `name` / `POST logout` | a session per user |
+| `POST upload` (multipart `file`) | adds the file's events, uploader as market maker |
+| `GET events` / `GET event?id=` | every event / one in full |
+| `GET users` / `GET me` | everybody (name, balance, is-MM) / the user's own details |
+| `GET ledger?after=` / `POST deposit` `amount` | the account |
+| `POST event/open` `id` / `POST event/close` `id winner` | market maker only |
+| `POST lmsr/buy` `id option quantity` | LMSR |
+| `POST orderbook/order` `id option side quantity price` | order book |
+| `GET chat?after=` / `POST chat` `text` | the chat (bonus) |
 
-### The engine module
+Option numbers are zero based on the wire; the screens count from one.
 
-| Package | Role |
-|---|---|
-| `market.engine.api` | The interface of the system and its implementation, plus the exception used to refuse a request with a message meant for the user. |
-| `market.engine.model` | The events and their options, the users and their accounts, the two trading methods, the order books, and every movement of money. |
-| `market.engine.pricing` | The LMSR mathematics: the cost function, the value of an option, the price of a purchase. |
-| `market.engine.xml` | Reading a file of events and users, and checking every rule of the exercise. |
-| `market.engine.dto` | The immutable answers handed back to the caller, so the model never leaves the engine. |
+### The client
 
-### The fx module
-
-`Launcher` starts it, `GuessMarketApp` builds the window from `main-view.fxml`,
-and `AppState` holds the engine, what is selected, and the one `refresh()` every
-screen is redrawn through — the seam a polled server slots into for exercise 3.
-`LoadFileTask` reads a file off the JavaFX thread and reports its steps through
-`updateMessage` and `updateProgress`, bound to the status label and the progress
-bar. `EventDetailPane` is built once and used wherever an event is shown.
-
-### The two trading methods
-
-An **LMSR** event is traded against itself: its market maker funds the subsidy
-`C(0,0)` when opening it, a buyer pays the difference the purchase makes to the
-cost function, and every winning share pays one dollar at the end. An **order
-book** event is traded between users: the market maker buys the first pairs of
-shares, orders meet at the price of whichever was waiting first, and when two
-buyers of opposite options together cover the base value `d`, new shares are
-minted against the account of the event.
+`ServerApi` is the only class that speaks HTTP; it turns the JSON back into the
+same records and hands them to the JavaFX thread. `AppState` polls every second
+and publishes each result through a `Feed`, which passes it on only when it really
+changed. The screens: `LoginController`, then `EventsController`,
+`AccountController` and `ChatController` under `MainController`.
 
 ## Test files
 
-`testing_files/` is untouched course material, and `extra-test-files/` adds the
-cases it does not cover. Both are split by exercise, because the two formats
-are not interchangeable: a v1 file has no `GM-users` and exercise 2 refuses it
-on purpose.
+- `testing_files/EX3/` - the course's v3 schema and sample files.
+- `extra-test-files/EX3/` - our own: the course's worked examples in v3 form,
+  three-option events, and faulty files, one per rule.
+- `testing_files/EX1`, `EX2` - from the course's earlier files, the ones still used:
+  two of each format, which exercise 3 refuses (`verify.bat` checks that it says why),
+  and the LMSR and order book simulations the expected numbers of `verify.bat` were
+  worked out from.
 
-From exercise 1, in `extra-test-files/EX1/`:
-
-| File | What it is for |
-|---|---|
-| `valid-single-lmsr.xml` | One event with `b=100` and no commission, so the worked example of Appendix A can be reproduced exactly: subsidy 69.31, a purchase of 100 shares costing 62.01, values 0.73 / 0.27, and 31.33 left after settlement. |
-| `valid-multi.xml` | Several events, both commission methods, and a very small `b` that makes prices move sharply. |
-| `bad-many-problems.xml` | Six events, each breaking a different rule, to check that all of the problems are reported together. |
-| `malformed.xml` | An XML file that is not well formed. |
-| `not-an-xml.txt` | Refused because of its extension, before anything tries to parse it. |
-| `folder with spaces/events file.xml` | A path containing spaces, in the folder name and in the file name. |
-
-And those of exercise 2 in `extra-test-files/EX2/`:
-
-| File | What it is for |
-|---|---|
-| `appendix-a-lmsr.xml` | The worked example of appendix A: `b=100`, no commission, so the subsidy 69.31, the purchase cost 62.01 and the values 0.73 / 0.27 can be checked exactly. |
-| `simulation-order-book-on-purchase.xml` | The event of the order book simulation supplied with the course, with its 1% commission charged on every purchase. |
-| `simulation-order-book-on-close.xml` | The same event with the commission charged when it closes, which is the other mode the simulation can be switched to. |
-| `order-book-no-mint.xml` | An order book that forbids minting, so two crossing buyers simply rest in their books. |
-| `blocked-user.xml` | Two orders that are each affordable on their own and are not affordable together, which is how a user ends up owing money and blocked. |
-| `bad-two-market-makers.xml`, `bad-duplicate-user.xml`, `bad-initial-not-divisible.xml`, `bad-many-problems.xml` | Faulty files, each breaking a rule the course files do not cover. |
+The code of exercises 1 and 2 as they were handed in - the console, the single-process
+JavaFX application and their test files - is on `main`.
 
 ## Documents
 
-| File | What it is |
-|---|---|
-| `docs/Guess Market - v3.pdf` | The exercise as it was given, version 3: all four exercises, the LMSR and Order Book appendices, and the three versions of the XML schema. |
-| `docs/EX2_SKETCH.pptx` | The layout sketch supplied for exercise 2: the two screens the window is expected to follow. |
-| `docs/EX1_PLAN.md` | The plan exercise 1 followed, kept as a record of the decisions. |
-| `docs/STATUS.md` | **Where the work stands**: what is finished, what is left and roughly how long it needs, what to run to check that nothing has rotted, and the assumptions that belong in the submitted readme. The first thing to read when picking this up again. |
-| `docs/EX2_PLAN.md` | The plan for exercise 2: what the engine gained, how the order book works, the screens, packaging JavaFX, and the order of work. |
-| `docs/EX1_README_SUBMISSION.md` | The readme submitted with exercise 1: how to run it, what every class does, and every assumption taken. |
+- [docs/STATUS.md](docs/STATUS.md) - where exercise 3 stands. Read first.
+- [docs/EX3_README_SUBMISSION.md](docs/EX3_README_SUBMISSION.md) - the exercise 3 readme, to export to PDF/Word.
+- [docs/EX3_PLAN.md](docs/EX3_PLAN.md) - the plan it was built from.
+- [docs/Guess Market - v3.pdf](docs/Guess%20Market%20-%20v3.pdf) - the specification.
+- The plans of exercises 1 and 2 are on `main`, with the code they describe.

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Guess-Market>
+	<GM-events>
+		<GM-event name="Only one">
+			<description>One option is not a market.</description>
+			<commission type="on-close">5</commission>
+			<GM-options>
+				<GM-option>Yes</GM-option>
+			</GM-options>
+			<GM-method>
+				<GM-LMSR><b>100</b></GM-LMSR>
+			</GM-method>
+		</GM-event>
+	</GM-events>
+</Guess-Market>
